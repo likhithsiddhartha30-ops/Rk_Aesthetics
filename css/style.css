@@ -1769,3 +1769,10 @@ footer .logo span { color: rgba(255,255,255,0.55); }
 @media (max-width: 560px) {
   .leftover-cart { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---------- free-launch note on the product page ---------- */
+.free-note {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  align-self: center;
+}

@@ -287,6 +287,11 @@ function getProduct(id) {
 /* =========================================================
    PAYMENT LINKS — one Razorpay link per product.
 
+   NOT IN USE RIGHT NOW: the files are free, and checkout hands them
+   over as soon as the form is submitted. Kept here so switching
+   payment back on is a matter of filling these in and restoring the
+   buy buttons.
+
    HOW TO FILL THIS IN
    1. Razorpay Dashboard → Payment Links → Create Payment Link.
    2. Set the amount to match the price above, name it after the
@@ -315,4 +320,58 @@ const PAYMENT_LINKS = {
 function getPaymentLink(id) {
   const link = PAYMENT_LINKS[id];
   return typeof link === "string" && link.trim() ? link.trim() : null;
+}
+
+
+/* =========================================================
+   Digital files — what the reader downloads.
+   Paths are relative to the site root and case-sensitive on most
+   hosts, so keep the "Products" folder spelled exactly like this.
+   The bundle grants every individual PDF rather than a file of its own.
+   ========================================================= */
+
+const PRODUCT_FILES = {
+  "corporate-diet-plan": [
+    { name: "The Corporate Diet Plan", file: "Products/01-the-corporate-diet-plan.pdf" }
+  ],
+  "corporate-workout-plan": [
+    { name: "The Corporate Workout Plan", file: "Products/02-the-corporate-workout-plan.pdf" }
+  ],
+  "fixing-your-sleep-schedule": [
+    { name: "Fixing Your Sleep Schedule", file: "Products/03-fixing-your-sleep-schedule.pdf" }
+  ],
+  "cortisol-reset": [
+    { name: "The Cortisol Reset", file: "Products/04-the-cortisol-reset.pdf" }
+  ],
+  "office-lunch-guide": [
+    { name: "The Office Lunch Guide", file: "Products/05-the-office-lunch-guide.pdf" }
+  ],
+  "business-travel-nutrition": [
+    { name: "Business Travel Nutrition Plan", file: "Products/06-business-travel-nutrition-plan.pdf" }
+  ],
+  "weekend-eating-control": [
+    { name: "Weekend Eating Control Plan", file: "Products/07-weekend-eating-control-plan.pdf" }
+  ],
+  "desk-job-mobility": [
+    { name: "The Desk-Job Mobility Plan", file: "Products/08-the-desk-job-mobility-plan.pdf" }
+  ],
+  "three-day-executive-workout": [
+    { name: "The 3-Day Executive Workout", file: "Products/09-the-3-day-executive-workout.pdf" }
+  ],
+  "executive-body-system": [
+    { name: "Product Catalogue & Pricing", file: "Products/00-product-catalog-and-pricing.pdf" },
+    { name: "The Corporate Diet Plan", file: "Products/01-the-corporate-diet-plan.pdf" },
+    { name: "The Corporate Workout Plan", file: "Products/02-the-corporate-workout-plan.pdf" },
+    { name: "Fixing Your Sleep Schedule", file: "Products/03-fixing-your-sleep-schedule.pdf" },
+    { name: "The Cortisol Reset", file: "Products/04-the-cortisol-reset.pdf" },
+    { name: "The Office Lunch Guide", file: "Products/05-the-office-lunch-guide.pdf" },
+    { name: "Business Travel Nutrition Plan", file: "Products/06-business-travel-nutrition-plan.pdf" },
+    { name: "Weekend Eating Control Plan", file: "Products/07-weekend-eating-control-plan.pdf" },
+    { name: "The Desk-Job Mobility Plan", file: "Products/08-the-desk-job-mobility-plan.pdf" },
+    { name: "The 3-Day Executive Workout", file: "Products/09-the-3-day-executive-workout.pdf" }
+  ]
+};
+
+function getProductFiles(id) {
+  return PRODUCT_FILES[id] || [];
 }

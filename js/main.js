@@ -1,13 +1,13 @@
 /* =========================================================
    RK AESTHETICS — Site behavior
 
-   Selling model: each product has its own Razorpay Payment Link.
-   The buyer pays on Razorpay's hosted page and the files are emailed
-   to them by an automation listening to Razorpay's webhook.
+   Delivery model: the files are free at the moment. Someone picks
+   what they want, fills in their details at checkout, and the
+   downloads are handed over immediately — the form is a lead capture,
+   not a payment.
 
-   The cart and checkout are a shopping convenience only: no money is
-   handled here and no API keys exist in this project. Checkout hands
-   the buyer to Razorpay, one hosted page per product.
+   Payment links are still defined in products.js, unused, ready for
+   the day this goes paid.
    ========================================================= */
 
 /* ---------- helpers ---------- */
@@ -83,6 +83,233 @@ function cartSubtotal() {
   return cartLines().reduce((sum, l) => sum + l.product.price, 0);
 }
 
+/* ---------- library (what the visitor has claimed) ----------
+   Nothing is charged for right now: filling in the form on the
+   checkout page unlocks the files. This list is what the site has
+   handed over, kept in the browser.
+
+   When payment is switched back on, this is the piece that must move
+   to the server — a browser deciding its own entitlements is fine for
+   free files and useless for paid ones.
+   ------------------------------------------------------------ */
+const LIBRARY_KEY = "rkaesthetics_library";
+const ORDERS_KEY = "rkaesthetics_orders";
+
+function getLibrary() {
+  try {
+    return JSON.parse(localStorage.getItem(LIBRARY_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function ownsProduct(id) {
+  return getLibrary().includes(id);
+}
+
+function getOrders() {
+  try {
+    return JSON.parse(localStorage.getItem(ORDERS_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/* Files claimed, de-duplicated across overlapping products — the
+   bundle contains what the singles contain. */
+function libraryFiles() {
+  const seen = new Set();
+  const files = [];
+  getLibrary().forEach((id) => {
+    getProductFiles(id).forEach((f) => {
+      if (!seen.has(f.file)) {
+        seen.add(f.file);
+        files.push(f);
+      }
+    });
+  });
+  return files;
+}
+
+/* Access is decided by files, not by product id: claiming the bundle
+   gives you every single product inside it too. */
+function hasAccess(id) {
+  const files = getProductFiles(id);
+  if (!files.length) return false;
+  const owned = new Set(libraryFiles().map((f) => f.file));
+  return files.every((f) => owned.has(f.file));
+}
+
+/* Records the claim, unlocks its products, empties the cart. */
+function completeOrder(customer) {
+  const lines = cartLines();
+  if (!lines.length) return null;
+
+  const library = getLibrary();
+  lines.forEach((l) => {
+    if (!library.includes(l.id)) library.push(l.id);
+  });
+  localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+
+  const order = {
+    id: "RK" + Date.now().toString(36).toUpperCase(),
+    date: new Date().toISOString(),
+    total: 0,
+    listPrice: cartSubtotal(),
+    customer: customer || null,
+    items: lines.map((l) => ({ id: l.id, name: l.product.name, price: l.product.price }))
+  };
+  const orders = getOrders();
+  orders.unshift(order);
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+
+  saveCart([]);
+  return order;
+}
+
+/* Filename the reader ends up with on disk. */
+function downloadFileName(name) {
+  return "RK Aesthetics - " + String(name).replace(/[\\/:*?"<>|]/g, "") + ".pdf";
+}
+
+function downloadListHTML(files) {
+  return files
+    .map(
+      (f) => `
+      <li class="download-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+        <span class="download-name">${f.name}</span>
+        <a class="btn btn-outline btn-sm" href="${escapeAttr(f.file)}" download="${escapeAttr(downloadFileName(f.name))}" data-download>Download PDF</a>
+      </li>`
+    )
+    .join("");
+}
+
+/* Saves a URL under a given filename without leaving the page. */
+function saveAs(href, filename) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* Browsers hand PDFs to their built-in viewer whenever they can, so
+   the file is fetched and saved from a blob — a blob has no viewer to
+   open in, it can only be saved. fetch() is unavailable over file://,
+   so opening the site straight from disk falls back to a plain
+   download-attribute click. Either way the page never navigates,
+   because navigating is what opens the viewer. */
+function initDownloadHandlers() {
+  document.addEventListener("click", async (e) => {
+    const link = e.target.closest("a[data-download]");
+    if (!link || link.dataset.busy) return;
+
+    e.preventDefault();
+    const filename = link.getAttribute("download") || "download.pdf";
+
+    if (location.protocol === "file:") {
+      saveAs(link.href, filename);
+      return;
+    }
+
+    const label = link.textContent;
+    link.dataset.busy = "1";
+    link.textContent = "Preparing…";
+
+    try {
+      const res = await fetch(link.href);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      const url = URL.createObjectURL(await res.blob());
+      saveAs(url, filename);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      showToast("That file couldn't be downloaded. Please refresh, or contact support.");
+      console.error("Download failed:", link.href, err);
+    } finally {
+      link.textContent = label;
+      delete link.dataset.busy;
+    }
+  });
+}
+
+/* ---------- already-claimed box on the product page ---------- */
+function renderOwnedBox(p) {
+  const info = document.querySelector(".product-info");
+  if (!info || !hasAccess(p.id)) return;
+
+  const viaBundle = !ownsProduct(p.id);
+  const box = document.createElement("div");
+  box.className = "owned-box";
+  box.innerHTML = `
+    <h4>${viaBundle ? "Included in a bundle you have — download it below" : "You already have this — download it below"}</h4>
+    <ul class="download-list">${downloadListHTML(getProductFiles(p.id))}</ul>
+    <a class="link-under" href="downloads.html">All your downloads</a>
+  `;
+  info.querySelector(".product-actions").insertAdjacentElement("afterend", box);
+}
+
+/* ---------- downloads page ---------- */
+function initDownloadsPage() {
+  const wrap = document.getElementById("downloads-page");
+  if (!wrap) return;
+
+  const orderId = new URLSearchParams(location.search).get("order");
+  const banner = document.getElementById("order-banner");
+  if (orderId && banner) {
+    const order = getOrders().find((o) => o.id === orderId);
+    if (order) {
+      banner.innerHTML = `
+        <h3>You're all set — ${order.id}</h3>
+        <p>${order.items.map((i) => i.name).join(", ")}. Your files are ready below, and this page stays available on this device.</p>`;
+      banner.style.display = "block";
+    }
+  }
+
+  const emptyEl = document.getElementById("downloads-empty");
+  const listWrap = document.getElementById("downloads-list");
+  const library = getLibrary();
+
+  if (!library.length) {
+    listWrap.style.display = "none";
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+  listWrap.style.display = "block";
+
+  listWrap.innerHTML = library
+    .map((id) => {
+      const p = getProduct(id);
+      if (!p) return "";
+      const files = getProductFiles(id);
+      return `
+        <div class="download-group">
+          <div class="download-group-head">
+            <div class="thumb"><img src="${escapeAttr(p.image)}" alt="${escapeAttr(p.name)}" loading="lazy"></div>
+            <div>
+              <span class="cat">${categoryLabel(p.category)}</span>
+              <h3>${p.name}</h3>
+              <p>${files.length} file${files.length !== 1 ? "s" : ""} · PDF · yours to keep</p>
+            </div>
+          </div>
+          <ul class="download-list">${downloadListHTML(files)}</ul>
+        </div>`;
+    })
+    .join("");
+}
+
+/* The Downloads link appears once something has been claimed. */
+function renderLibraryNav() {
+  const has = getLibrary().length > 0;
+  document.querySelectorAll("[data-downloads-link]").forEach((el) => {
+    el.style.display = has ? "" : "none";
+  });
+}
+
 /* ---------- toast ---------- */
 function showToast(msg) {
   let toast = document.querySelector(".toast");
@@ -122,32 +349,32 @@ function initNav() {
   }
 
   renderCartBadge();
+  renderLibraryNav();
   document.querySelectorAll("[data-year]").forEach((el) => {
     el.textContent = new Date().getFullYear();
   });
 }
 
-/* ---------- buy button ----------
-   Sends the buyer to that product's Razorpay Payment Link. Products
-   without a link yet are shown as unavailable rather than dropping
-   someone onto a dead page.
-   -------------------------------- */
-function buyButtonHTML(p, extraClass) {
-  const link = getPaymentLink(p.id);
+/* ---------- claim button ----------
+   Free for now, so this adds the product to the cart rather than
+   sending anyone to a payment page. A product already claimed says so
+   and points at the download instead.
+   ---------------------------------- */
+function claimButtonHTML(p, extraClass) {
   const cls = "btn btn-primary" + (extraClass ? " " + extraClass : "");
-
-  if (!link) {
-    return `<button type="button" class="${cls}" data-buy-unavailable>Coming soon</button>`;
+  if (hasAccess(p.id)) {
+    return `<a class="btn btn-outline${extraClass ? " " + extraClass : ""}" href="downloads.html">Download it again</a>`;
   }
-  return `<a class="${cls}" href="${escapeAttr(link)}" data-buy="${escapeAttr(p.id)}">
-      Buy now — ${formatPrice(p.price)}
-    </a>`;
+  return `<button type="button" class="${cls}" data-claim="${escapeAttr(p.id)}">Get it free</button>`;
 }
 
-function initBuyButtons(root) {
-  (root || document).querySelectorAll("[data-buy-unavailable]").forEach((btn) => {
+function initClaimButtons(root) {
+  (root || document).querySelectorAll("[data-claim]").forEach((btn) => {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = "1";
     btn.addEventListener("click", () => {
-      showToast("This one isn't on sale yet — check back shortly.");
+      const p = getProduct(btn.dataset.claim);
+      if (p) addToCartAndOpen(p.id, p.name);
     });
   });
 }
@@ -171,8 +398,8 @@ function ensureCartDrawer() {
       <div class="drawer-body" id="drawer-items"></div>
       <div class="drawer-foot">
         <div class="drawer-total"><span>Subtotal</span><span id="drawer-subtotal">₹0</span></div>
-        <p class="drawer-note">Paid on Razorpay · emailed straight after.</p>
-        <a href="checkout.html" class="btn btn-primary btn-block">Checkout</a>
+        <p class="drawer-note">Free during launch · download straight away.</p>
+        <a href="checkout.html" class="btn btn-primary btn-block">Get my files</a>
         <a href="cart.html" class="link-under drawer-viewcart">View cart</a>
       </div>
     </aside>`;
@@ -392,14 +619,14 @@ function initProductPage() {
         <div><span>Commitment</span><b>${p.commitment}</b></div>
       </div>
       <div class="product-actions">
-        ${buyButtonHTML(p, "btn-lg")}
-        <button type="button" class="btn btn-outline" id="add-to-cart">Add to Cart</button>
+        ${claimButtonHTML(p, "btn-lg")}
+        <span class="free-note">Free while we're in launch — usually ${formatPrice(p.price)}.</span>
       </div>
       <div class="delivery-note">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         <div>
-          <b>Emailed to you straight after payment.</b>
-          <span>You pay on Razorpay's secure page — UPI, card or netbanking — and the files land in your inbox within a couple of minutes.</span>
+          <b>Yours to download in about thirty seconds.</b>
+          <span>Add it, tell us where to send updates, and the PDF downloads straight away. No payment, no card details.</span>
         </div>
       </div>
       <ul class="included-list">
@@ -414,15 +641,17 @@ function initProductPage() {
     </div>
   `;
 
-  initBuyButtons(wrap);
+  initClaimButtons(wrap);
+  renderOwnedBox(p);
 
-  const addBtn = document.getElementById("add-to-cart");
-  function syncAddButton() {
-    addBtn.textContent = inCart(p.id) ? "In your cart" : "Add to Cart";
+  const claimBtn = wrap.querySelector("[data-claim]");
+  if (claimBtn) {
+    const syncClaimButton = () => {
+      claimBtn.textContent = inCart(p.id) ? "In your cart" : "Get it free";
+    };
+    syncClaimButton();
+    document.addEventListener("cart:changed", syncClaimButton);
   }
-  syncAddButton();
-  addBtn.addEventListener("click", () => addToCartAndOpen(p.id, p.name));
-  document.addEventListener("cart:changed", syncAddButton);
 
   const tabDesc = document.getElementById("tab-panel-description");
   const tabIncludes = document.getElementById("tab-panel-includes");
@@ -455,8 +684,8 @@ function renderBundleCta() {
   const slot = document.getElementById("bundle-cta");
   if (!slot) return;
   const bundle = getProduct("executive-body-system");
-  if (bundle) slot.innerHTML = buyButtonHTML(bundle, "btn-lg");
-  initBuyButtons(slot);
+  if (bundle) slot.innerHTML = claimButtonHTML(bundle, "btn-lg");
+  initClaimButtons(slot);
 }
 
 /* ---------- client results gallery (home page) ---------- */
@@ -595,29 +824,6 @@ function initCartPage() {
   render();
 }
 
-/* Compares the cart against the bundle and says only what is true. */
-function bundleNudgeHTML(lines) {
-  const bundle = getProduct("executive-body-system");
-  if (!bundle || lines.length < 2) return "";
-  if (lines.some((l) => l.id === bundle.id)) return "";
-
-  const subtotal = lines.reduce((sum, l) => sum + l.product.price, 0);
-  const extra = bundle.price - subtotal;
-  const others = 9 - lines.length;
-
-  const pitch =
-    extra <= 0
-      ? `All nine systems are ${formatPrice(bundle.price)} — ${formatPrice(-extra)} less than the ${lines.length} in your cart, in one payment.`
-      : `All nine systems are ${formatPrice(bundle.price)}. That is ${formatPrice(extra)} more than your ${lines.length}, for ${others} systems you would not otherwise get — and one payment instead of ${lines.length}.`;
-
-  return `
-    <div class="pay-nudge">
-      <b>Worth a look before you pay</b>
-      <p>${pitch}</p>
-      <a class="link-under" href="product.html?id=executive-body-system">See the bundle</a>
-    </div>`;
-}
-
 /* ---------- checkout page ----------
    There is no payment API here: each product is paid for on its own
    hosted Razorpay page. One item is a straight redirect. Several
@@ -663,9 +869,8 @@ function initCheckoutPage() {
     )
     .join("");
 
-  const total = cartSubtotal();
-  document.getElementById("checkout-subtotal").textContent = formatPrice(total);
-  document.getElementById("checkout-total").textContent = formatPrice(total);
+  document.getElementById("checkout-subtotal").textContent = formatPrice(cartSubtotal());
+  document.getElementById("checkout-total").textContent = "Free";
   document.getElementById("checkout-count").textContent =
     `${lines.length} item${lines.length !== 1 ? "s" : ""}`;
 
@@ -712,30 +917,6 @@ function initCheckoutPage() {
     });
   });
 
-  /* ---- hand off to Razorpay ---- */
-  const payList = document.getElementById("pay-list");
-
-  function renderPayList() {
-    payList.innerHTML = `
-      <h3>Pay for each product</h3>
-      <p class="pay-list-note">Each product has its own secure Razorpay page, so they are paid one at a time. Every payment sends its own delivery email, and opening them in a new tab keeps this list here.</p>
-      ${lines
-        .map(
-          (l) => `
-        <div class="pay-row">
-          <div>
-            <b>${l.product.name}</b>
-            <span>${formatPrice(l.product.price)}</span>
-          </div>
-          <a class="btn btn-primary btn-sm" href="${escapeAttr(getPaymentLink(l.id))}" target="_blank" rel="noopener">Pay ${formatPrice(l.product.price)}</a>
-        </div>`
-        )
-        .join("")}
-      ${bundleNudgeHTML(lines)}`;
-    payList.style.display = "block";
-    payList.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   form.addEventListener("submit", (e) => {
     e.preventDefault();
 
@@ -759,31 +940,21 @@ function initCheckoutPage() {
       return;
     }
 
-    localStorage.setItem(
-      CUSTOMER_KEY,
-      JSON.stringify({
-        name: form.elements.name.value.trim(),
-        email: form.elements.email.value.trim(),
-        phone: form.elements.phone.value.replace(/[\s-]/g, ""),
-        city: form.elements.city.value.trim(),
-        state: form.elements.state.value.trim(),
-        gstin: form.elements.gstin.value.trim().toUpperCase(),
-        notes: form.elements.notes.value.trim()
-      })
-    );
+    const customer = {
+      name: form.elements.name.value.trim(),
+      email: form.elements.email.value.trim(),
+      phone: form.elements.phone.value.replace(/[\s-]/g, ""),
+      city: form.elements.city.value.trim(),
+      state: form.elements.state.value.trim(),
+      gstin: form.elements.gstin.value.trim().toUpperCase(),
+      notes: form.elements.notes.value.trim()
+    };
+    localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
 
-    // Every product must actually be on sale before we send anyone off.
-    const missing = lines.filter((l) => !getPaymentLink(l.id));
-    if (missing.length) {
-      showToast(`${missing[0].product.name} is not on sale yet — remove it to continue.`);
-      return;
-    }
-
-    if (lines.length === 1) {
-      location.href = getPaymentLink(lines[0].id);
-      return;
-    }
-    renderPayList();
+    // Nothing to charge: unlock the files and send them to the downloads.
+    const order = completeOrder(customer);
+    if (!order) return;
+    location.href = "downloads.html?order=" + encodeURIComponent(order.id);
   });
 }
 
@@ -849,6 +1020,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initResults();
   initThankYouPage();
   initContactForm();
-  initBuyButtons();
+  initClaimButtons();
   ensureCartDrawer();
+  initDownloadHandlers();
+  initDownloadsPage();
 });
