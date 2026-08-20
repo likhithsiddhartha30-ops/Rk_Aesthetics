@@ -285,53 +285,34 @@ function getProduct(id) {
 }
 
 /* =========================================================
-   Digital files — what a buyer actually downloads.
-   Paths are relative to the site root. The bundle grants
-   every individual PDF, not a file of its own.
+   PAYMENT LINKS — one Razorpay link per product.
+
+   HOW TO FILL THIS IN
+   1. Razorpay Dashboard → Payment Links → Create Payment Link.
+   2. Set the amount to match the price above, name it after the
+      product, and turn ON "Collect customer email" — the delivery
+      automation needs that address.
+   3. Set the redirect/callback URL to:  thank-you.html on your domain
+   4. Paste the link URL below, against the matching product id.
+
+   A product with an empty link cannot be bought: its button says
+   "Coming soon" instead of sending anyone to a broken page.
    ========================================================= */
 
-const PRODUCT_FILES = {
-  "corporate-diet-plan": [
-    { name: "The Corporate Diet Plan", file: "Products/01-the-corporate-diet-plan.pdf" }
-  ],
-  "corporate-workout-plan": [
-    { name: "The Corporate Workout Plan", file: "Products/02-the-corporate-workout-plan.pdf" }
-  ],
-  "fixing-your-sleep-schedule": [
-    { name: "Fixing Your Sleep Schedule", file: "Products/03-fixing-your-sleep-schedule.pdf" }
-  ],
-  "cortisol-reset": [
-    { name: "The Cortisol Reset", file: "Products/04-the-cortisol-reset.pdf" }
-  ],
-  "office-lunch-guide": [
-    { name: "The Office Lunch Guide", file: "Products/05-the-office-lunch-guide.pdf" }
-  ],
-  "business-travel-nutrition": [
-    { name: "Business Travel Nutrition Plan", file: "Products/06-business-travel-nutrition-plan.pdf" }
-  ],
-  "weekend-eating-control": [
-    { name: "Weekend Eating Control Plan", file: "Products/07-weekend-eating-control-plan.pdf" }
-  ],
-  "desk-job-mobility": [
-    { name: "The Desk-Job Mobility Plan", file: "Products/08-the-desk-job-mobility-plan.pdf" }
-  ],
-  "three-day-executive-workout": [
-    { name: "The 3-Day Executive Workout", file: "Products/09-the-3-day-executive-workout.pdf" }
-  ],
-  "executive-body-system": [
-    { name: "Product Catalogue & Pricing", file: "Products/00-product-catalog-and-pricing.pdf" },
-    { name: "The Corporate Diet Plan", file: "Products/01-the-corporate-diet-plan.pdf" },
-    { name: "The Corporate Workout Plan", file: "Products/02-the-corporate-workout-plan.pdf" },
-    { name: "Fixing Your Sleep Schedule", file: "Products/03-fixing-your-sleep-schedule.pdf" },
-    { name: "The Cortisol Reset", file: "Products/04-the-cortisol-reset.pdf" },
-    { name: "The Office Lunch Guide", file: "Products/05-the-office-lunch-guide.pdf" },
-    { name: "Business Travel Nutrition Plan", file: "Products/06-business-travel-nutrition-plan.pdf" },
-    { name: "Weekend Eating Control Plan", file: "Products/07-weekend-eating-control-plan.pdf" },
-    { name: "The Desk-Job Mobility Plan", file: "Products/08-the-desk-job-mobility-plan.pdf" },
-    { name: "The 3-Day Executive Workout", file: "Products/09-the-3-day-executive-workout.pdf" }
-  ]
+const PAYMENT_LINKS = {
+  "executive-body-system": "",
+  "corporate-diet-plan": "",
+  "corporate-workout-plan": "",
+  "fixing-your-sleep-schedule": "",
+  "cortisol-reset": "",
+  "office-lunch-guide": "",
+  "business-travel-nutrition": "",
+  "weekend-eating-control": "",
+  "desk-job-mobility": "",
+  "three-day-executive-workout": ""
 };
 
-function getProductFiles(id) {
-  return PRODUCT_FILES[id] || [];
+function getPaymentLink(id) {
+  const link = PAYMENT_LINKS[id];
+  return typeof link === "string" && link.trim() ? link.trim() : null;
 }

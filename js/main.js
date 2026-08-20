@@ -1,8 +1,14 @@
 /* =========================================================
-   RK AESTHETICS — Site behavior: cart, rendering, interactions
-   ========================================================= */
+   RK AESTHETICS — Site behavior
 
-const CART_KEY = "rkaesthetics_cart";
+   Selling model: each product has its own Razorpay Payment Link.
+   The buyer pays on Razorpay's hosted page and the files are emailed
+   to them by an automation listening to Razorpay's webhook.
+
+   The cart and checkout are a shopping convenience only: no money is
+   handled here and no API keys exist in this project. Checkout hands
+   the buyer to Razorpay, one hosted page per product.
+   ========================================================= */
 
 /* ---------- helpers ---------- */
 function formatPrice(n) {
@@ -17,13 +23,25 @@ function escapeAttr(s) {
   return String(s).replace(/"/g, "&quot;");
 }
 
-/* ---------- cart storage ---------- */
+const CART_KEY = "rkaesthetics_cart";
+
+/* ---------- cart storage ----------
+   These are digital files: owning two copies of the same PDF is
+   meaningless, so a product is either in the cart or it isn't. There
+   is no quantity anywhere in the flow.
+   ---------------------------------- */
 function getCart() {
+  let raw;
   try {
-    return JSON.parse(localStorage.getItem(CART_KEY)) || [];
+    raw = JSON.parse(localStorage.getItem(CART_KEY)) || [];
   } catch (e) {
     return [];
   }
+  // Older carts stored a qty; drop it, and drop any duplicates with it.
+  const seen = new Set();
+  return raw
+    .filter((i) => i && i.id && !seen.has(i.id) && seen.add(i.id))
+    .map((i) => ({ id: i.id }));
 }
 
 function saveCart(cart) {
@@ -31,179 +49,38 @@ function saveCart(cart) {
   renderCartBadge();
 }
 
-function addToCart(id, qty) {
-  qty = qty || 1;
+function inCart(id) {
+  return getCart().some((i) => i.id === id);
+}
+
+/* Returns false when the product was already there. */
+function addToCart(id) {
+  if (inCart(id)) return false;
   const cart = getCart();
-  const existing = cart.find((i) => i.id === id);
-  if (existing) {
-    existing.qty += qty;
-  } else {
-    cart.push({ id, qty });
-  }
+  cart.push({ id });
   saveCart(cart);
+  return true;
 }
 
 function removeFromCart(id) {
   saveCart(getCart().filter((i) => i.id !== id));
 }
 
-function setQty(id, qty) {
-  const cart = getCart();
-  const item = cart.find((i) => i.id === id);
-  if (item) {
-    item.qty = Math.max(1, qty);
-    saveCart(cart);
-  }
-}
-
 function cartCount() {
-  return getCart().reduce((sum, i) => sum + i.qty, 0);
+  return getCart().length;
 }
 
 function cartLines() {
   return getCart()
     .map((i) => {
       const p = getProduct(i.id);
-      return p ? { ...i, product: p } : null;
+      return p ? { id: i.id, product: p } : null;
     })
     .filter(Boolean);
 }
 
 function cartSubtotal() {
-  return cartLines().reduce((sum, l) => sum + l.product.price * l.qty, 0);
-}
-
-/* ---------- library (what the buyer owns) ----------
-   A completed order writes its products here, and every download on
-   the site is gated on this list. This is client-side only: it proves
-   the purchase flow, it is not real access control. Once a payment
-   gateway and a backend exist, the library should be issued by the
-   server against the paid order.
-   -------------------------------------------------- */
-const LIBRARY_KEY = "rkaesthetics_library";
-const ORDERS_KEY = "rkaesthetics_orders";
-
-function getLibrary() {
-  try {
-    return JSON.parse(localStorage.getItem(LIBRARY_KEY)) || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function ownsProduct(id) {
-  return getLibrary().includes(id);
-}
-
-/* Access is decided by files, not by product id: buying the bundle
-   entitles you to every single product inside it too. */
-function hasAccess(id) {
-  const files = getProductFiles(id);
-  if (!files.length) return false;
-  const owned = new Set(libraryFiles().map((f) => f.file));
-  return files.every((f) => owned.has(f.file));
-}
-
-function getOrders() {
-  try {
-    return JSON.parse(localStorage.getItem(ORDERS_KEY)) || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-/* Files the buyer is entitled to, de-duplicated across overlapping
-   purchases — the bundle contains what the singles contain. */
-function libraryFiles() {
-  const seen = new Set();
-  const files = [];
-  getLibrary().forEach((id) => {
-    getProductFiles(id).forEach((f) => {
-      if (!seen.has(f.file)) {
-        seen.add(f.file);
-        files.push(f);
-      }
-    });
-  });
-  return files;
-}
-
-/* Records the order, unlocks its products, empties the cart. */
-function completeOrder() {
-  const lines = cartLines();
-  if (!lines.length) return null;
-
-  const total = cartSubtotal();
-  const library = getLibrary();
-  lines.forEach((l) => {
-    if (!library.includes(l.id)) library.push(l.id);
-  });
-  localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
-
-  const order = {
-    id: "RK" + Date.now().toString(36).toUpperCase(),
-    date: new Date().toISOString(),
-    total: total,
-    items: lines.map((l) => ({ id: l.id, name: l.product.name, qty: l.qty }))
-  };
-  const orders = getOrders();
-  orders.unshift(order);
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-
-  saveCart([]);
-  return order;
-}
-
-/* Filename the buyer ends up with on disk. */
-function downloadFileName(name) {
-  return "RK Aesthetics - " + String(name).replace(/[\/:*?"<>|]/g, "") + ".pdf";
-}
-
-/* Browsers ignore the `download` attribute in a few cases (file://
-   among them) and hand the PDF to their built-in viewer instead. So
-   fetch the file and save it from a blob, which always downloads.
-   If the fetch fails, the plain link is left to do its job. */
-function initDownloadHandlers() {
-  document.addEventListener("click", async (e) => {
-    const link = e.target.closest("a[data-download]");
-    if (!link || link.dataset.busy) return;
-
-    e.preventDefault();
-    const label = link.textContent;
-    link.dataset.busy = "1";
-    link.textContent = "Preparing…";
-
-    try {
-      const res = await fetch(link.href);
-      if (!res.ok) throw new Error(res.status);
-      const url = URL.createObjectURL(await res.blob());
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = link.getAttribute("download") || "download.pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } catch (err) {
-      window.location.href = link.href;
-    } finally {
-      link.textContent = label;
-      delete link.dataset.busy;
-    }
-  });
-}
-
-function downloadListHTML(files) {
-  return files
-    .map(
-      (f) => `
-      <li class="download-row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-        <span class="download-name">${f.name}</span>
-        <a class="btn btn-outline btn-sm" href="${escapeAttr(f.file)}" download="${escapeAttr(downloadFileName(f.name))}" data-download>Download PDF</a>
-      </li>`
-    )
-    .join("");
+  return cartLines().reduce((sum, l) => sum + l.product.price, 0);
 }
 
 /* ---------- toast ---------- */
@@ -243,9 +120,139 @@ function initNav() {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
   }
+
   renderCartBadge();
-  const yearEls = document.querySelectorAll("[data-year]");
-  yearEls.forEach((el) => (el.textContent = new Date().getFullYear()));
+  document.querySelectorAll("[data-year]").forEach((el) => {
+    el.textContent = new Date().getFullYear();
+  });
+}
+
+/* ---------- buy button ----------
+   Sends the buyer to that product's Razorpay Payment Link. Products
+   without a link yet are shown as unavailable rather than dropping
+   someone onto a dead page.
+   -------------------------------- */
+function buyButtonHTML(p, extraClass) {
+  const link = getPaymentLink(p.id);
+  const cls = "btn btn-primary" + (extraClass ? " " + extraClass : "");
+
+  if (!link) {
+    return `<button type="button" class="${cls}" data-buy-unavailable>Coming soon</button>`;
+  }
+  return `<a class="${cls}" href="${escapeAttr(link)}" data-buy="${escapeAttr(p.id)}">
+      Buy now — ${formatPrice(p.price)}
+    </a>`;
+}
+
+function initBuyButtons(root) {
+  (root || document).querySelectorAll("[data-buy-unavailable]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      showToast("This one isn't on sale yet — check back shortly.");
+    });
+  });
+}
+
+/* ---------- cart drawer ----------
+   Built once and reused on every page, so adding to the cart never
+   costs the visitor their place on the page they were reading.
+   --------------------------------- */
+function ensureCartDrawer() {
+  let drawer = document.getElementById("cart-drawer");
+  if (drawer) return drawer;
+
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `
+    <div class="drawer-overlay" id="drawer-overlay" hidden></div>
+    <aside class="drawer" id="cart-drawer" role="dialog" aria-modal="true" aria-label="Your cart" hidden>
+      <div class="drawer-head">
+        <h3 id="drawer-title">Added to cart</h3>
+        <button type="button" class="drawer-close" aria-label="Close cart">&times;</button>
+      </div>
+      <div class="drawer-body" id="drawer-items"></div>
+      <div class="drawer-foot">
+        <div class="drawer-total"><span>Subtotal</span><span id="drawer-subtotal">₹0</span></div>
+        <p class="drawer-note">Paid on Razorpay · emailed straight after.</p>
+        <a href="checkout.html" class="btn btn-primary btn-block">Checkout</a>
+        <a href="cart.html" class="link-under drawer-viewcart">View cart</a>
+      </div>
+    </aside>`;
+  document.body.appendChild(wrap);
+
+  drawer = document.getElementById("cart-drawer");
+  const overlay = document.getElementById("drawer-overlay");
+
+  drawer.querySelector(".drawer-close").addEventListener("click", closeCartDrawer);
+  overlay.addEventListener("click", closeCartDrawer);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !drawer.hidden) closeCartDrawer();
+  });
+
+  return drawer;
+}
+
+function renderCartDrawer() {
+  const itemsEl = document.getElementById("drawer-items");
+  if (!itemsEl) return;
+  const lines = cartLines();
+
+  itemsEl.innerHTML = lines.length
+    ? lines
+        .map(
+          (l) => `
+        <div class="drawer-item" data-id="${l.id}">
+          <div class="thumb"><img src="${escapeAttr(l.product.image)}" alt="${escapeAttr(l.product.name)}" loading="lazy"></div>
+          <div class="drawer-item-info">
+            <span class="cat">${categoryLabel(l.product.category)}</span>
+            <h4><a href="product.html?id=${l.id}">${l.product.name}</a></h4>
+            <span class="drawer-item-price">${formatPrice(l.product.price)}</span>
+          </div>
+          <button type="button" class="drawer-remove" aria-label="Remove ${escapeAttr(l.product.name)}">&times;</button>
+        </div>`
+        )
+        .join("")
+    : `<p class="drawer-empty">Your cart is empty.</p>`;
+
+  itemsEl.querySelectorAll(".drawer-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      removeFromCart(btn.closest(".drawer-item").dataset.id);
+      renderCartDrawer();
+      document.dispatchEvent(new CustomEvent("cart:changed"));
+    });
+  });
+
+  document.getElementById("drawer-subtotal").textContent = formatPrice(cartSubtotal());
+}
+
+function openCartDrawer(title) {
+  ensureCartDrawer();
+  renderCartDrawer();
+  document.getElementById("drawer-title").textContent = title || "Your cart";
+  document.getElementById("cart-drawer").hidden = false;
+  document.getElementById("drawer-overlay").hidden = false;
+  requestAnimationFrame(() => document.getElementById("cart-drawer").classList.add("open"));
+  document.body.style.overflow = "hidden";
+}
+
+function closeCartDrawer() {
+  const drawer = document.getElementById("cart-drawer");
+  if (!drawer) return;
+  drawer.classList.remove("open");
+  document.body.style.overflow = "";
+  setTimeout(() => {
+    drawer.hidden = true;
+    document.getElementById("drawer-overlay").hidden = true;
+  }, 280);
+}
+
+/* One product, one copy — tells the visitor which happened. */
+function addToCartAndOpen(id, name) {
+  if (addToCart(id)) {
+    openCartDrawer("Added to cart");
+  } else {
+    openCartDrawer("Already in your cart");
+    showToast(`"${name}" is already in your cart — one copy is all you need.`);
+  }
+  document.dispatchEvent(new CustomEvent("cart:changed"));
 }
 
 /* ---------- product card ---------- */
@@ -298,7 +305,7 @@ function initShopPage() {
 
   const params = new URLSearchParams(location.search);
   let activeCategory = params.get("category") || "all";
-  let sort = "popular";
+  let sort = "featured";
 
   const filterList = document.getElementById("filter-list");
   const sortSelect = document.getElementById("sort-select");
@@ -364,7 +371,6 @@ function initProductPage() {
 
   const params = new URLSearchParams(location.search);
   const p = getProduct(params.get("id")) || PRODUCTS[0];
-  let qty = 1;
 
   document.title = `${p.name} — RK Aesthetics`;
 
@@ -386,12 +392,15 @@ function initProductPage() {
         <div><span>Commitment</span><b>${p.commitment}</b></div>
       </div>
       <div class="product-actions">
-        <div class="qty-box">
-          <button type="button" id="qty-minus" aria-label="Decrease quantity">&minus;</button>
-          <span id="qty-val">1</span>
-          <button type="button" id="qty-plus" aria-label="Increase quantity">+</button>
+        ${buyButtonHTML(p, "btn-lg")}
+        <button type="button" class="btn btn-outline" id="add-to-cart">Add to Cart</button>
+      </div>
+      <div class="delivery-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="M4 7l8 6 8-6"/></svg>
+        <div>
+          <b>Emailed to you straight after payment.</b>
+          <span>You pay on Razorpay's secure page — UPI, card or netbanking — and the files land in your inbox within a couple of minutes.</span>
         </div>
-        <button class="btn btn-primary" id="add-to-cart">Add to Cart</button>
       </div>
       <ul class="included-list">
         ${p.features
@@ -405,20 +414,15 @@ function initProductPage() {
     </div>
   `;
 
-  document.getElementById("qty-minus").addEventListener("click", () => {
-    qty = Math.max(1, qty - 1);
-    document.getElementById("qty-val").textContent = qty;
-  });
-  document.getElementById("qty-plus").addEventListener("click", () => {
-    qty += 1;
-    document.getElementById("qty-val").textContent = qty;
-  });
-  document.getElementById("add-to-cart").addEventListener("click", () => {
-    addToCart(p.id, qty);
-    showToast(`Added "${p.name}" to cart`);
-  });
+  initBuyButtons(wrap);
 
-  renderOwnedBox(p);
+  const addBtn = document.getElementById("add-to-cart");
+  function syncAddButton() {
+    addBtn.textContent = inCart(p.id) ? "In your cart" : "Add to Cart";
+  }
+  syncAddButton();
+  addBtn.addEventListener("click", () => addToCartAndOpen(p.id, p.name));
+  document.addEventListener("cart:changed", syncAddButton);
 
   const tabDesc = document.getElementById("tab-panel-description");
   const tabIncludes = document.getElementById("tab-panel-includes");
@@ -446,166 +450,13 @@ function initProductPage() {
   }
 }
 
-/* ---------- cart page ---------- */
-function initCartPage() {
-  const wrap = document.getElementById("cart-page");
-  if (!wrap) return;
-
-  function render() {
-    const lines = cartLines();
-    const itemsEl = document.getElementById("cart-items");
-    const emptyEl = document.getElementById("cart-empty");
-    const summaryEl = document.getElementById("cart-summary");
-
-    if (!lines.length) {
-      itemsEl.style.display = "none";
-      summaryEl.style.display = "none";
-      emptyEl.style.display = "block";
-      return;
-    }
-    itemsEl.style.display = "block";
-    summaryEl.style.display = "block";
-    emptyEl.style.display = "none";
-
-    itemsEl.innerHTML = lines
-      .map(
-        (l) => `
-      <div class="cart-item" data-id="${l.id}">
-        <div class="thumb"><img src="${escapeAttr(l.product.image)}" alt="${escapeAttr(l.product.name)}" loading="lazy"></div>
-        <div>
-          <span class="cat">${categoryLabel(l.product.category)}</span>
-          <h4><a href="product.html?id=${l.id}">${l.product.name}</a></h4>
-          <div class="qty-box">
-            <button type="button" class="qty-dec" aria-label="Decrease quantity">&minus;</button>
-            <span>${l.qty}</span>
-            <button type="button" class="qty-inc" aria-label="Increase quantity">+</button>
-          </div>
-          <button type="button" class="remove">Remove</button>
-        </div>
-        <span class="line-price">${formatPrice(l.product.price * l.qty)}</span>
-      </div>`
-      )
-      .join("");
-
-    itemsEl.querySelectorAll(".cart-item").forEach((row) => {
-      const id = row.dataset.id;
-      row.querySelector(".qty-inc").addEventListener("click", () => {
-        const item = getCart().find((i) => i.id === id);
-        setQty(id, item.qty + 1);
-        render();
-      });
-      row.querySelector(".qty-dec").addEventListener("click", () => {
-        const item = getCart().find((i) => i.id === id);
-        setQty(id, item.qty - 1);
-        render();
-      });
-      row.querySelector(".remove").addEventListener("click", () => {
-        removeFromCart(id);
-        render();
-      });
-    });
-
-    const subtotal = cartSubtotal();
-    document.getElementById("sum-subtotal").textContent = formatPrice(subtotal);
-    document.getElementById("sum-total").textContent = formatPrice(subtotal);
-  }
-
-  document.getElementById("checkout-btn")?.addEventListener("click", () => {
-    if (!cartLines().length) return;
-    // No gateway yet, so the order completes immediately and the buyer
-    // is taken straight to their downloads.
-    const order = completeOrder();
-    if (!order) return;
-    location.href = "downloads.html?order=" + encodeURIComponent(order.id);
-  });
-
-  render();
-}
-
-/* ---------- contact form (demo, no backend) ---------- */
-function initContactForm() {
-  const form = document.getElementById("contact-form");
-  if (!form) return;
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    document.getElementById("form-success").classList.add("show");
-    form.reset();
-  });
-}
-
-/* ---------- owned-product box on the product page ---------- */
-function renderOwnedBox(p) {
-  const info = document.querySelector(".product-info");
-  if (!info || !hasAccess(p.id)) return;
-
-  const viaBundle = !ownsProduct(p.id);
-  const box = document.createElement("div");
-  box.className = "owned-box";
-  box.innerHTML = `
-    <h4>${viaBundle ? "Included in a bundle you own — download it below" : "You already own this — download it below"}</h4>
-    <ul class="download-list">${downloadListHTML(getProductFiles(p.id))}</ul>
-    <a class="link-under" href="downloads.html">All your downloads</a>
-  `;
-  info.querySelector(".product-actions").insertAdjacentElement("afterend", box);
-}
-
-/* ---------- downloads page ---------- */
-function initDownloadsPage() {
-  const wrap = document.getElementById("downloads-page");
-  if (!wrap) return;
-
-  const orderId = new URLSearchParams(location.search).get("order");
-  const banner = document.getElementById("order-banner");
-  if (orderId && banner) {
-    const order = getOrders().find((o) => o.id === orderId);
-    if (order) {
-      banner.innerHTML = `
-        <h3>Order ${order.id} confirmed</h3>
-        <p>${order.items.map((i) => i.name).join(", ")} — ${formatPrice(order.total)}. Your files are ready below.</p>`;
-      banner.style.display = "block";
-    }
-  }
-
-  const emptyEl = document.getElementById("downloads-empty");
-  const listWrap = document.getElementById("downloads-list");
-  const library = getLibrary();
-
-  if (!library.length) {
-    listWrap.style.display = "none";
-    emptyEl.style.display = "block";
-    return;
-  }
-  emptyEl.style.display = "none";
-  listWrap.style.display = "block";
-
-  // Grouped by the product that was bought, so a bundle reads as a bundle.
-  listWrap.innerHTML = library
-    .map((id) => {
-      const p = getProduct(id);
-      if (!p) return "";
-      const files = getProductFiles(id);
-      return `
-        <div class="download-group">
-          <div class="download-group-head">
-            <div class="thumb"><img src="${escapeAttr(p.image)}" alt="${escapeAttr(p.name)}" loading="lazy"></div>
-            <div>
-              <span class="cat">${categoryLabel(p.category)}</span>
-              <h3>${p.name}</h3>
-              <p>${files.length} file${files.length !== 1 ? "s" : ""} · PDF · yours for life</p>
-            </div>
-          </div>
-          <ul class="download-list">${downloadListHTML(files)}</ul>
-        </div>`;
-    })
-    .join("");
-}
-
-/* The Downloads link only appears once something has been bought. */
-function renderLibraryNav() {
-  const owns = getLibrary().length > 0;
-  document.querySelectorAll("[data-downloads-link]").forEach((el) => {
-    el.style.display = owns ? "" : "none";
-  });
+/* ---------- home page bundle CTA ---------- */
+function renderBundleCta() {
+  const slot = document.getElementById("bundle-cta");
+  if (!slot) return;
+  const bundle = getProduct("executive-body-system");
+  if (bundle) slot.innerHTML = buyButtonHTML(bundle, "btn-lg");
+  initBuyButtons(slot);
 }
 
 /* ---------- client results gallery (home page) ---------- */
@@ -685,16 +536,319 @@ function initResults() {
   });
 }
 
+/* ---------- cart page ---------- */
+function initCartPage() {
+  const wrap = document.getElementById("cart-page");
+  if (!wrap) return;
+
+  function render() {
+    const lines = cartLines();
+    const itemsEl = document.getElementById("cart-items");
+    const emptyEl = document.getElementById("cart-empty");
+    const summaryEl = document.getElementById("cart-summary");
+
+    if (!lines.length) {
+      itemsEl.style.display = "none";
+      summaryEl.style.display = "none";
+      emptyEl.style.display = "block";
+      return;
+    }
+    itemsEl.style.display = "block";
+    summaryEl.style.display = "block";
+    emptyEl.style.display = "none";
+
+    itemsEl.innerHTML = lines
+      .map(
+        (l) => `
+      <div class="cart-item" data-id="${l.id}">
+        <div class="thumb"><img src="${escapeAttr(l.product.image)}" alt="${escapeAttr(l.product.name)}" loading="lazy"></div>
+        <div>
+          <span class="cat">${categoryLabel(l.product.category)}</span>
+          <h4><a href="product.html?id=${l.id}">${l.product.name}</a></h4>
+          <button type="button" class="remove">Remove</button>
+        </div>
+        <span class="line-price">${formatPrice(l.product.price)}</span>
+      </div>`
+      )
+      .join("");
+
+    itemsEl.querySelectorAll(".cart-item").forEach((row) => {
+      row.querySelector(".remove").addEventListener("click", () => {
+        removeFromCart(row.dataset.id);
+        render();
+        document.dispatchEvent(new CustomEvent("cart:changed"));
+      });
+    });
+
+    const subtotal = cartSubtotal();
+    document.getElementById("sum-subtotal").textContent = formatPrice(subtotal);
+    document.getElementById("sum-total").textContent = formatPrice(subtotal);
+  }
+
+  document.addEventListener("cart:changed", render);
+
+  document.getElementById("checkout-btn")?.addEventListener("click", () => {
+    if (!cartLines().length) return;
+    location.href = "checkout.html";
+  });
+
+  render();
+}
+
+/* Compares the cart against the bundle and says only what is true. */
+function bundleNudgeHTML(lines) {
+  const bundle = getProduct("executive-body-system");
+  if (!bundle || lines.length < 2) return "";
+  if (lines.some((l) => l.id === bundle.id)) return "";
+
+  const subtotal = lines.reduce((sum, l) => sum + l.product.price, 0);
+  const extra = bundle.price - subtotal;
+  const others = 9 - lines.length;
+
+  const pitch =
+    extra <= 0
+      ? `All nine systems are ${formatPrice(bundle.price)} — ${formatPrice(-extra)} less than the ${lines.length} in your cart, in one payment.`
+      : `All nine systems are ${formatPrice(bundle.price)}. That is ${formatPrice(extra)} more than your ${lines.length}, for ${others} systems you would not otherwise get — and one payment instead of ${lines.length}.`;
+
+  return `
+    <div class="pay-nudge">
+      <b>Worth a look before you pay</b>
+      <p>${pitch}</p>
+      <a class="link-under" href="product.html?id=executive-body-system">See the bundle</a>
+    </div>`;
+}
+
+/* ---------- checkout page ----------
+   There is no payment API here: each product is paid for on its own
+   hosted Razorpay page. One item is a straight redirect. Several
+   items means several payments, because a Payment Link carries one
+   fixed amount — so the page says so plainly and nudges the bundle.
+   ----------------------------------- */
+const CUSTOMER_KEY = "rkaesthetics_customer";
+
+function getSavedCustomer() {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOMER_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function initCheckoutPage() {
+  const page = document.getElementById("checkout-page");
+  if (!page) return;
+
+  const form = document.getElementById("checkout-form");
+  const emptyEl = document.getElementById("checkout-empty");
+  const lines = cartLines();
+
+  if (!lines.length) {
+    document.getElementById("checkout-layout").style.display = "none";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  /* ---- order summary ---- */
+  document.getElementById("checkout-lines").innerHTML = lines
+    .map(
+      (l) => `
+      <div class="checkout-line">
+        <div class="thumb"><img src="${escapeAttr(l.product.image)}" alt="${escapeAttr(l.product.name)}" loading="lazy"></div>
+        <div>
+          <h4>${l.product.name}</h4>
+          <span>${l.product.format} · one copy</span>
+        </div>
+        <span class="line-price">${formatPrice(l.product.price)}</span>
+      </div>`
+    )
+    .join("");
+
+  const total = cartSubtotal();
+  document.getElementById("checkout-subtotal").textContent = formatPrice(total);
+  document.getElementById("checkout-total").textContent = formatPrice(total);
+  document.getElementById("checkout-count").textContent =
+    `${lines.length} item${lines.length !== 1 ? "s" : ""}`;
+
+  /* ---- prefill from the last order ---- */
+  const saved = getSavedCustomer();
+  Object.keys(saved).forEach((k) => {
+    const field = form.elements[k];
+    if (field && typeof saved[k] === "string") field.value = saved[k];
+  });
+
+  /* ---- validation ---- */
+  const RULES = {
+    name: (v) => (v.trim().length >= 2 ? "" : "Please enter your full name."),
+    email: (v) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+        ? ""
+        : "Enter a valid email — this is where your files are sent.",
+    phone: (v) =>
+      /^[6-9]\d{9}$/.test(v.replace(/[\s-]/g, ""))
+        ? ""
+        : "Enter a 10-digit Indian mobile number."
+  };
+
+  function setError(field, message) {
+    const wrap = field.closest(".field");
+    wrap.querySelector(".field-error").textContent = message;
+    wrap.classList.toggle("has-error", !!message);
+    field.setAttribute("aria-invalid", message ? "true" : "false");
+    return !message;
+  }
+
+  function validateField(name) {
+    const field = form.elements[name];
+    if (!field || !RULES[name]) return true;
+    return setError(field, RULES[name](field.value));
+  }
+
+  Object.keys(RULES).forEach((name) => {
+    const field = form.elements[name];
+    if (!field) return;
+    field.addEventListener("blur", () => validateField(name));
+    field.addEventListener("input", () => {
+      if (field.closest(".field").classList.contains("has-error")) validateField(name);
+    });
+  });
+
+  /* ---- hand off to Razorpay ---- */
+  const payList = document.getElementById("pay-list");
+
+  function renderPayList() {
+    payList.innerHTML = `
+      <h3>Pay for each product</h3>
+      <p class="pay-list-note">Each product has its own secure Razorpay page, so they are paid one at a time. Every payment sends its own delivery email, and opening them in a new tab keeps this list here.</p>
+      ${lines
+        .map(
+          (l) => `
+        <div class="pay-row">
+          <div>
+            <b>${l.product.name}</b>
+            <span>${formatPrice(l.product.price)}</span>
+          </div>
+          <a class="btn btn-primary btn-sm" href="${escapeAttr(getPaymentLink(l.id))}" target="_blank" rel="noopener">Pay ${formatPrice(l.product.price)}</a>
+        </div>`
+        )
+        .join("")}
+      ${bundleNudgeHTML(lines)}`;
+    payList.style.display = "block";
+    payList.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    let ok = true;
+    Object.keys(RULES).forEach((name) => {
+      if (!validateField(name)) ok = false;
+    });
+
+    const consent = form.elements.consent;
+    const consentWrap = consent.closest(".field");
+    consentWrap.querySelector(".field-error").textContent = consent.checked
+      ? ""
+      : "Please accept the terms to continue.";
+    consentWrap.classList.toggle("has-error", !consent.checked);
+    if (!consent.checked) ok = false;
+
+    if (!ok) {
+      const firstError = form.querySelector(".has-error input");
+      if (firstError) firstError.focus();
+      showToast("Please fix the highlighted fields.");
+      return;
+    }
+
+    localStorage.setItem(
+      CUSTOMER_KEY,
+      JSON.stringify({
+        name: form.elements.name.value.trim(),
+        email: form.elements.email.value.trim(),
+        phone: form.elements.phone.value.replace(/[\s-]/g, ""),
+        city: form.elements.city.value.trim(),
+        state: form.elements.state.value.trim(),
+        gstin: form.elements.gstin.value.trim().toUpperCase(),
+        notes: form.elements.notes.value.trim()
+      })
+    );
+
+    // Every product must actually be on sale before we send anyone off.
+    const missing = lines.filter((l) => !getPaymentLink(l.id));
+    if (missing.length) {
+      showToast(`${missing[0].product.name} is not on sale yet — remove it to continue.`);
+      return;
+    }
+
+    if (lines.length === 1) {
+      location.href = getPaymentLink(lines[0].id);
+      return;
+    }
+    renderPayList();
+  });
+}
+
+/* ---------- thank-you page ---------- */
+function initThankYouPage() {
+  const page = document.getElementById("thankyou-page");
+  if (!page) return;
+
+  // Razorpay appends its own ids to the redirect URL. They are useful
+  // to show back to the buyer for support, and nothing else — access
+  // is granted by the webhook, never by this page.
+  const params = new URLSearchParams(location.search);
+  const paymentId =
+    params.get("razorpay_payment_id") || params.get("payment_id") || "";
+
+  const refEl = document.getElementById("payment-ref");
+  if (refEl && paymentId) {
+    refEl.textContent = paymentId;
+    document.getElementById("payment-ref-row").style.display = "";
+  }
+
+  // The site is never told which items were paid for, so the cart is
+  // left alone and the buyer decides. Guessing would either wipe items
+  // they still intend to buy, or leave a cart that looks unbought.
+  const lines = cartLines();
+  const box = document.getElementById("leftover-cart");
+  if (!box || !lines.length) return;
+
+  document.getElementById("leftover-count").textContent =
+    `${lines.length} item${lines.length !== 1 ? "s" : ""}`;
+  document.getElementById("leftover-names").textContent =
+    lines.map((l) => l.product.name).join(", ") +
+    ". Clear it if you have paid for everything, or head back to finish the rest.";
+  box.style.display = "";
+
+  document.getElementById("clear-cart").addEventListener("click", () => {
+    saveCart([]);
+    box.style.display = "none";
+    showToast("Cart cleared.");
+  });
+}
+
+/* ---------- contact form (demo, no backend) ---------- */
+function initContactForm() {
+  const form = document.getElementById("contact-form");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    document.getElementById("form-success").classList.add("show");
+    form.reset();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initNav();
-  renderLibraryNav();
-  initDownloadHandlers();
   renderStarRows();
   renderFeatured();
-  initResults();
+  renderBundleCta();
   initShopPage();
   initProductPage();
   initCartPage();
-  initDownloadsPage();
+  initCheckoutPage();
+  initResults();
+  initThankYouPage();
   initContactForm();
+  initBuyButtons();
+  ensureCartDrawer();
 });

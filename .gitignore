@@ -8,3 +8,9 @@ Testimonials/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Secrets — never commit. Set these with `supabase secrets set` instead.
+.env
+.env.*
+supabase/.env
+supabase/.temp/

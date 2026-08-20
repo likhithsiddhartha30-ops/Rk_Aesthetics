@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — RK Aesthetics</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">RK <span>Aesthetics</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count>0</span></a>
+      <button class="nav-toggle" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> — <a href="cart.html">Cart</a> — Checkout</div>
+    <h1>Checkout</h1>
+    <p>Confirm your details, then pay on Razorpay. Your files are emailed to you the moment the payment clears.</p>
+  </div>
+</div>
+
+<section style="padding-top:0" id="checkout-page">
+  <div class="container">
+
+    <div class="empty-cart" id="checkout-empty" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 3h2l2.6 12.4a2 2 0 002 1.6h9.7a2 2 0 002-1.6L22 7H6"/></svg>
+      <h3>There is nothing to check out</h3>
+      <p>Add a program to your cart and it will show up here.</p>
+      <a href="shop.html" class="btn btn-primary">Browse the Shop</a>
+    </div>
+
+    <div class="checkout-layout" id="checkout-layout">
+      <form class="checkout-form" id="checkout-form" novalidate>
+
+        <fieldset>
+          <legend>Your details</legend>
+          <div class="field">
+            <label for="co-name">Full name</label>
+            <input type="text" id="co-name" name="name" autocomplete="name" required>
+            <span class="field-error" role="alert"></span>
+          </div>
+          <div class="field">
+            <label for="co-email">Email address</label>
+            <input type="email" id="co-email" name="email" autocomplete="email" required>
+            <span class="field-hint">Use the same address on the Razorpay page — that is where the files are sent.</span>
+            <span class="field-error" role="alert"></span>
+          </div>
+          <div class="field">
+            <label for="co-phone">Mobile number</label>
+            <input type="tel" id="co-phone" name="phone" autocomplete="tel-national" inputmode="numeric" placeholder="10-digit number" required>
+            <span class="field-hint">Used for the payment receipt and order support.</span>
+            <span class="field-error" role="alert"></span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Billing details</legend>
+          <div class="field-row">
+            <div class="field">
+              <label for="co-city">City</label>
+              <input type="text" id="co-city" name="city" autocomplete="address-level2" required>
+              <span class="field-error" role="alert"></span>
+            </div>
+            <div class="field">
+              <label for="co-state">State</label>
+              <input type="text" id="co-state" name="state" autocomplete="address-level1" required>
+              <span class="field-error" role="alert"></span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="co-gstin">GSTIN <span class="optional">optional</span></label>
+            <input type="text" id="co-gstin" name="gstin" autocomplete="off" placeholder="For a company invoice">
+            <span class="field-error" role="alert"></span>
+          </div>
+          <div class="field">
+            <label for="co-notes">Anything we should know? <span class="optional">optional</span></label>
+            <textarea id="co-notes" name="notes" rows="3"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Payment</legend>
+          <div class="payment-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+            <div>
+              <b>You pay on Razorpay, not here.</b>
+              <p>UPI, card or netbanking on Razorpay's secure page. This site never sees your card details.</p>
+            </div>
+          </div>
+          <div class="field field-check">
+            <label class="check">
+              <input type="checkbox" id="co-consent" name="consent">
+              <span>I understand these are digital files, emailed after payment, and I accept the <a href="contact.html">terms and refund policy</a>.</span>
+            </label>
+            <span class="field-error" role="alert"></span>
+          </div>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg">Continue to payment</button>
+        <p class="checkout-privacy">Your details stay in this browser — they are kept only to fill this form in next time.</p>
+
+        <div class="pay-list" id="pay-list" style="display:none"></div>
+      </form>
+
+      <aside class="checkout-summary">
+        <div class="summary-box">
+          <h3>Your order <span class="count" id="checkout-count"></span></h3>
+          <div id="checkout-lines"></div>
+          <div class="summary-row"><span>Subtotal</span><span id="checkout-subtotal">₹0</span></div>
+          <div class="summary-row"><span>Delivery</span><span>Emailed instantly</span></div>
+          <div class="summary-row total"><span>Total</span><span id="checkout-total">₹0</span></div>
+          <a href="cart.html" class="link-under" style="display:inline-block;margin-top:18px">Edit cart</a>
+          <div class="secure-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+            One copy per product · paid securely on Razorpay
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <a href="index.html" class="logo">RK <span>Aesthetics</span></a>
+        <p>Fitness and performance systems for Indian professionals. Written by a coach, delivered instantly as PDFs.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="shop.html?category=bundle">The Bundle</a></li>
+          <li><a href="shop.html?category=nutrition">Nutrition</a></li>
+          <li><a href="shop.html?category=training">Training</a></li>
+          <li><a href="shop.html?category=recovery">Recovery &amp; Stress</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Studio</h4>
+        <ul>
+          <li><a href="about.html">About</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="contact.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="contact.html">Help Centre</a></li>
+          <li><a href="contact.html">Refund Policy</a></li>
+          <li><a href="contact.html">Terms &amp; Privacy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> RK Aesthetics</span>
+      <span class="disclaimer">General information only — not medical advice. Consult a doctor before changing your diet or exercise, especially with an existing condition or medication.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/products.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

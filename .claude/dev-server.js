@@ -17,6 +17,10 @@ http.createServer((req, res) => {
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404); return res.end("Not found");
   }
-  res.writeHead(200, { "Content-Type": types[path.extname(file).toLowerCase()] || "application/octet-stream" });
+  const ext = path.extname(file).toLowerCase();
+  const headers = { "Content-Type": types[ext] || "application/octet-stream" };
+  // Mirror what a real host should do: PDFs are products, not pages.
+  if (ext === ".pdf") headers["Content-Disposition"] = 'attachment; filename="' + path.basename(file) + '"';
+  res.writeHead(200, headers);
   fs.createReadStream(file).pipe(res);
 }).listen(5173, () => console.log("serving on http://localhost:5173"));
