@@ -379,15 +379,15 @@ create policy "read own downloads" on public.download_events
 -- 7. SEED — your current catalogue
 -- =============================================================
 insert into public.products (id, name, category, price_inr, old_price_inr, is_bundle, sort_order) values
-  ('executive-body-system',       'The Executive Body System',    'bundle',    1499, 3191, true,  0),
-  ('corporate-diet-plan',         'The Corporate Diet Plan',      'nutrition',  499, null, false, 1),
-  ('corporate-workout-plan',      'The Corporate Workout Plan',   'training',   499, null, false, 2),
-  ('fixing-your-sleep-schedule',  'Fixing Your Sleep Schedule',   'recovery',   299, null, false, 3),
+  ('executive-body-system',       'The Executive Body System',    'bundle',    3000, 3591, true,  0),
+  ('corporate-diet-plan',         'The Corporate Diet Plan',      'nutrition',  399, null, false, 1),
+  ('corporate-workout-plan',      'The Corporate Workout Plan',   'training',   399, null, false, 2),
+  ('fixing-your-sleep-schedule',  'Fixing Your Sleep Schedule',   'recovery',   399, null, false, 3),
   ('cortisol-reset',              'The Cortisol Reset',           'recovery',   399, null, false, 4),
-  ('office-lunch-guide',          'The Office Lunch Guide',       'nutrition',  199, null, false, 5),
-  ('business-travel-nutrition',   'Business Travel Nutrition Plan','nutrition', 299, null, false, 6),
-  ('weekend-eating-control',      'Weekend Eating Control Plan',  'nutrition',  299, null, false, 7),
-  ('desk-job-mobility',           'The Desk-Job Mobility Plan',   'recovery',   299, null, false, 8),
+  ('office-lunch-guide',          'The Office Lunch Guide',       'nutrition',  399, null, false, 5),
+  ('business-travel-nutrition',   'Business Travel Nutrition Plan','nutrition', 399, null, false, 6),
+  ('weekend-eating-control',      'Weekend Eating Control Plan',  'nutrition',  399, null, false, 7),
+  ('desk-job-mobility',           'The Desk-Job Mobility Plan',   'recovery',   399, null, false, 8),
   ('three-day-executive-workout', 'The 3-Day Executive Workout',  'training',   399, null, false, 9)
 on conflict (id) do update
   set name = excluded.name,
