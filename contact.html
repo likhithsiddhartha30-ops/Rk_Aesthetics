@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact — RK Aesthetics</title>
+<meta name="description" content="Questions about a product, an order or coaching — get in touch with RK Aesthetics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">RK <span>Aesthetics</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="shop.html">Shop</a></li>
+      <li data-downloads-link style="display:none"><a href="downloads.html">Downloads</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="contact.html" class="active">Contact</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count>0</span></a>
+      <button class="nav-toggle" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> — Contact</div>
+    <h1>Ask before you buy</h1>
+    <p>Describe your week honestly — the hours, the travel, the dinners, and what hurts by Friday. I'd rather point you to the right plan, or none at all, than sell you something that won't survive your calendar.</p>
+  </div>
+</div>
+
+<section style="padding-top:0">
+  <div class="container contact-layout">
+    <div class="contact-info">
+      <div class="item">
+        <b>Email</b>
+        <span>support@rkaesthetics.example</span>
+      </div>
+      <div class="item">
+        <b>Hours</b>
+        <span>Monday to Friday, 9am–5pm</span>
+      </div>
+      <div class="item">
+        <b>Response Time</b>
+        <span>Usually within 24 hours</span>
+      </div>
+      <div class="item">
+        <b>Refunds</b>
+        <span>7 days, no questions asked</span>
+      </div>
+      <p style="margin-top:28px;font-size:13.5px">Note: this storefront is not yet connected to a payment gateway, so the form and checkout don't process anything real.</p>
+    </div>
+
+    <div>
+      <div class="form-success" id="form-success">Thanks — your message has been received. You'll get a reply within 24 hours.</div>
+      <form id="contact-form">
+        <div class="form-grid">
+          <div class="field">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" required>
+          </div>
+          <div class="field full">
+            <label for="topic">Topic</label>
+            <select id="topic">
+              <option>Which system should I start with?</option>
+              <option>Question about the bundle</option>
+              <option>1:1 coaching application</option>
+              <option>Order or download issue</option>
+              <option>Refund request</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="message">Message</label>
+            <textarea id="message" required></textarea>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:28px">Send Message</button>
+        <p class="form-note">By submitting, you agree to be contacted about your enquiry.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="container">
+    <div class="section-head">
+      <h2>Common questions</h2>
+    </div>
+    <details class="faq-item" open>
+      <summary>Which one should I start with?</summary>
+      <p>Most people take the bundle, because the problems overlap — the sleep, the stress and the canteen plate are usually the same story. If you want one to test first, the Office Lunch Guide is ₹199 and fixes the afternoon crash within a week.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Do I have to give up rice, or cook separately?</summary>
+      <p>No. The Corporate Diet Plan is built around Indian food, canteen menus and a carb-heavy home kitchen. If a plan asks you to cook a different meal from your family, you will quit it — so this one doesn't.</p>
+    </details>
+    <details class="faq-item">
+      <summary>My schedule is genuinely unpredictable. Will a workout plan survive it?</summary>
+      <p>The Corporate Workout Plan runs on rotation rather than a schedule — four sessions done in order whenever you reach the gym. A missed Tuesday just happens on Wednesday, so nothing is ever missed, only delayed.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Is three days a week actually enough?</summary>
+      <p>Three days sustained for a year beats five days abandoned after six weeks. Every muscle gets trained three times a week rather than once, which is better for both strength and muscle.</p>
+    </details>
+    <details class="faq-item">
+      <summary>How do I get the files, and what if it isn't for me?</summary>
+      <p>Everything is an instant PDF download after payment. There is a 7-day refund, no questions asked.</p>
+    </details>
+    <details class="faq-item">
+      <summary>Is this medical advice?</summary>
+      <p>No. These are general information products for healthy adults. If you have an existing condition, are on medication, or are unsure, speak to a doctor before changing your diet or exercise.</p>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <a href="index.html" class="logo">RK <span>Aesthetics</span></a>
+        <p>Fitness and performance systems for Indian professionals. Written by a coach, delivered instantly as PDFs.</p>
+        <div class="social-row">
+          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
+          <a href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l6 3-6 3z"/></svg></a>
+          <a href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3v11a3 3 0 11-3-3"/><path d="M14 3c0 3 2 5 4 5"/></svg></a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Shop</h4>
+        <ul>
+          <li><a href="shop.html?category=bundle">The Bundle</a></li>
+          <li><a href="shop.html?category=nutrition">Nutrition</a></li>
+          <li><a href="shop.html?category=training">Training</a></li>
+          <li><a href="shop.html?category=recovery">Recovery &amp; Stress</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Studio</h4>
+        <ul>
+          <li><a href="about.html">About</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="contact.html#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="contact.html">Help Centre</a></li>
+          <li><a href="contact.html">Refund Policy</a></li>
+          <li><a href="contact.html">Terms &amp; Privacy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span data-year></span> RK Aesthetics</span>
+      <span class="disclaimer">General information only — not medical advice. Consult a doctor before changing your diet or exercise, especially with an existing condition or medication.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/products.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

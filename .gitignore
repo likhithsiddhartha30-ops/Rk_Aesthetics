@@ -1,0 +1,10 @@
+# Paid digital products — never publish these to a public repo.
+Products/
+
+# Client transformation photos — identifiable people, kept off GitHub.
+Testimonials/
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
