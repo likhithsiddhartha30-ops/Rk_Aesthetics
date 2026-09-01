@@ -3,13 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Your Cart | RK Aesthetics</title>
+<title>Delivery Policy | RK Aesthetics</title>
+<meta name="description" content="How RK Aesthetics digital products are delivered: instantly, as downloadable PDFs.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<!-- ============================================================
+     BEFORE GOING LIVE, replace every [bracketed] blank below:
+       [Legal entity name]      e.g. "Ritik Khantwal" (sole proprietor)
+                                or your registered company name
+       [Registered address]     full postal address with PIN code
+       [Support email]          a working inbox you monitor
+       [Phone number]           a reachable number
+       [GSTIN]                  only if you are GST registered;
+                                otherwise delete that line entirely
+       [State]                  for the governing-law clause
+     Razorpay reviews these pages during activation and will reject
+     them if bracketed placeholders are still visible.
+     ============================================================ -->
 
 <nav class="nav">
   <div class="nav-inner">
@@ -19,7 +33,7 @@
       <li><a href="shop.html">Shop</a></li>
       <li data-downloads-link style="display:none"><a href="downloads.html">Downloads</a></li>
       <li><a href="about.html">About</a></li>
-      <li><a href="contact.html">Contact</a></li>
+      <li><a href="contact.html" class="active">Contact</a></li>
     </ul>
     <div class="nav-actions">
       <a href="cart.html" class="cart-link">Cart <span class="cart-count" data-cart-count>0</span></a>
@@ -32,36 +46,46 @@
 
 <div class="page-header">
   <div class="container">
-    <div class="breadcrumb"><a href="index.html">Home</a> / Cart</div>
-    <h1>Your cart</h1>
-    <p>One copy of each product, free while we are in launch. Fill in your details at the next step and download straight away.</p>
+    <div class="breadcrumb"><a href="index.html">Home</a> / Delivery</div>
+    <h1>Delivery Policy</h1>
+    <p>Everything sold here is digital. Nothing is shipped, and delivery happens the moment payment is confirmed.</p>
   </div>
 </div>
 
-<section style="padding-top:0" id="cart-page">
-  <div class="container">
-    <div class="cart-layout">
-      <div>
-        <div id="cart-items"></div>
-        <div class="empty-cart" id="cart-empty" style="display:none">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 3h2l2.6 12.4a2 2 0 002 1.6h9.7a2 2 0 002-1.6L22 7H6"/></svg>
-          <h3>Nothing here yet</h3>
-          <p>Once you add a program or plan, it'll show up here.</p>
-          <a href="shop.html" class="btn btn-primary">Browse the Shop</a>
-        </div>
-      </div>
-      <div class="summary-box" id="cart-summary">
-        <h3>Summary</h3>
-        <div class="summary-row"><span>Subtotal</span><span id="sum-subtotal">₹0</span></div>
-        <div class="summary-row"><span>Delivery</span><span>Instant download</span></div>
-        <div class="summary-row total"><span>Total</span><span id="sum-total">₹0</span></div>
-        <button class="btn btn-primary btn-block" id="checkout-btn" style="margin-top:22px">Continue</button>
-        <div class="secure-note">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-          Free during launch · instant download
-        </div>
-      </div>
-    </div>
+<section class="legal" style="padding-top:0">
+  <div class="container-narrow">
+    <span class="updated">Last updated 1 September 2026</span>
+
+    <h2>What you receive</h2>
+    <p>All products are digital files in PDF format. There is no physical product, and no courier or postal shipment is involved. No shipping charges apply to any order.</p>
+
+    <h2>When you receive it</h2>
+    <table>
+      <tr><th>Step</th><th>Timing</th></tr>
+      <tr><td>Payment confirmed by Razorpay</td><td>Immediate</td></tr>
+      <tr><td>Files unlocked on your downloads page</td><td>Immediate</td></tr>
+      <tr><td>Confirmation email with your order number</td><td>Within a few minutes</td></tr>
+    </table>
+    <p>If a payment is held for verification by your bank, delivery follows as soon as it clears, usually within a few minutes and occasionally up to 24 hours.</p>
+
+    <h2>How to get your files</h2>
+    <ul>
+      <li>Sign in and open your downloads page, where everything you own is listed</li>
+      <li>Download links are generated fresh each time and expire after a few minutes, so open them promptly</li>
+      <li>You can return and download again whenever you need to; there is no download limit</li>
+    </ul>
+
+    <h2>What you need</h2>
+    <p>Any device that opens PDF files: a phone, tablet, laptop or desktop. No app or subscription is required.</p>
+
+    <h2>If something goes wrong</h2>
+    <p>If your payment succeeded but the files have not appeared within 30 minutes, email [Support email] with the payment reference from your bank or from Razorpay. We will confirm the payment and release your files manually, usually the same day.</p>
+
+    <h2>Delivery area</h2>
+    <p>Because delivery is entirely digital, products are available anywhere with an internet connection. Prices are charged in Indian Rupees regardless of where you buy from.</p>
+
+    <h2>Contact</h2>
+    <p>[Support email], or via our <a href="contact.html">contact page</a>.</p>
   </div>
 </section>
 

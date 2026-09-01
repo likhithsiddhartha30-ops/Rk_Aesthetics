@@ -1,5 +1,5 @@
 /* =========================================================
-   RK AESTHETICS — Product Catalogue
+   RK AESTHETICS / Product Catalogue
    Nine mini-products + the bundle, per the 2026 catalogue.
    Audience: Indian corporate professionals.
    ========================================================= */
@@ -22,13 +22,13 @@ const PRODUCTS = [
     category: "bundle",
     price: 3000,
     oldPrice: 3591,
-    tag: "Best Value — Save ₹591",
+    tag: "Best Value: Save ₹591",
     format: "9 PDFs",
     duration: "Complete system",
     commitment: "Everything, one price",
     image: "images/05.jpeg",
-    headline: "The whole system, for less than half of what the parts cost.",
-    blurb: "All nine systems — diet, training, sleep, stress, travel, weekends and mobility.",
+    headline: "Every system you need, ₹591 less than buying them one at a time.",
+    blurb: "All nine systems: diet, training, sleep, stress, travel, weekends and mobility.",
     description:
       "Every one of the nine products, bought together. The diet and training systems, the sleep and cortisol protocols, the three field guides for lunch, travel and weekends, and the ten-minute mobility routine. Bought individually these come to ₹3,591; together they are ₹3,000.",
     features: [
@@ -63,7 +63,7 @@ const PRODUCTS = [
       "No separate cooking and no imported ingredients"
     ],
     objection:
-      "\"I've tried diets.\" — Every plan you tried was built for someone who cooks their own food at fixed times. This one wasn't."
+      "\"I've tried diets.\" Every plan you tried was built for someone who cooks their own food at fixed times. This one wasn't."
   },
   {
     id: "corporate-workout-plan",
@@ -80,16 +80,16 @@ const PRODUCTS = [
     headline: "A workout plan that survives a 9pm deployment.",
     blurb: "Four sessions on rotation, not on a schedule. Miss a day and nothing breaks.",
     description:
-      "A four-day strength programme built on rotation rather than a fixed schedule. There are four workouts — A, B, C, D — and you do them in order whenever you reach the gym. Miss Tuesday and Tuesday's session simply happens on Wednesday. Nothing is ever missed, only delayed, so a bad week never turns into a restart.",
+      "A four-day strength programme built on rotation rather than a fixed schedule. There are four workouts (A, B, C, D) and you do them in order whenever you reach the gym. Miss Tuesday and Tuesday's session simply happens on Wednesday. Nothing is ever missed, only delayed, so a bad week never turns into a restart.",
     features: [
-      "Four rotating sessions — gym or home",
+      "Four rotating sessions, gym or home",
       "Rotation, not schedule: a missed day is only a delayed day",
       "A two-session floor that maintains everything you build",
       "Loading by reps-in-reserve, with full 2–4 minute rests",
       "A clear rule for when to add weight and when to add reps"
     ],
     objection:
-      "\"I don't have time.\" — You don't have a fixed schedule. That's a different problem, and this solves it."
+      "\"I don't have time.\" You don't have a fixed schedule. That's a different problem, and this solves it."
   },
   {
     id: "fixing-your-sleep-schedule",
@@ -106,7 +106,7 @@ const PRODUCTS = [
     headline: "You don't have insomnia. You have a schedule.",
     blurb: "A 14-day reset for people who are wired at 11pm and dead at 7am.",
     description:
-      "A fourteen-day reset for professionals who fall asleep at 1:30am, wake at seven, and run the day on coffee and adrenaline. It works on the three things that actually decide when you fall asleep — the light you've seen, when you last had caffeine, and how much unfinished work you carry to bed.",
+      "A fourteen-day reset for professionals who fall asleep at 1:30am, wake at seven, and run the day on coffee and adrenaline. It works on the three things that actually decide when you fall asleep: the light you've seen, when you last had caffeine, and how much unfinished work you carry to bed.",
     features: [
       "A 14-day reset schedule, day by day",
       "The four leaks that keep you awake, and the fix for each",
@@ -115,7 +115,7 @@ const PRODUCTS = [
       "Why fixing wake time first makes bedtime follow"
     ],
     objection:
-      "\"Nothing works for me.\" — You've been trying to sleep earlier. Fix the wake time first; bedtime follows."
+      "\"Nothing works for me.\" You've been trying to sleep earlier. Fix the wake time first; bedtime follows."
   },
   {
     id: "cortisol-reset",
@@ -141,7 +141,7 @@ const PRODUCTS = [
       "Where the 4pm sugar craving actually comes from"
     ],
     objection:
-      "\"I can't reduce my stress.\" — You don't have to. You have to change how fast your body clears it."
+      "\"I can't reduce my stress.\" You don't have to. You have to change how fast your body clears it."
   },
   {
     id: "office-lunch-guide",
@@ -158,7 +158,7 @@ const PRODUCTS = [
     headline: "The 3pm crash is a lunch problem.",
     blurb: "How to order a 500-calorie, 35g-protein meal in any canteen, on any app.",
     description:
-      "A heavy rice-and-curry canteen plate is why you're useless from 2:30 to 4pm and raiding the vending machine by five. This is one repeatable decision framework that works whether you're in a canteen, ordering on a delivery app, or sitting in a client's boardroom — no dabba required.",
+      "A heavy rice-and-curry canteen plate is why you're useless from 2:30 to 4pm and raiding the vending machine by five. This is one repeatable decision framework that works whether you're in a canteen, ordering on a delivery app, or sitting in a client's boardroom, no dabba required.",
     features: [
       "One framework: protein first, vegetables second, carbs last and capped",
       "What a good office lunch looks like, component by component",
@@ -167,7 +167,7 @@ const PRODUCTS = [
       "Under 60 seconds of thinking per meal"
     ],
     objection:
-      "\"I can't control office food.\" — You can't control the menu. You fully control the plate."
+      "\"I can't control office food.\" You can't control the menu. You fully control the plate."
   },
   {
     id: "business-travel-nutrition",
@@ -186,14 +186,14 @@ const PRODUCTS = [
     description:
       "Nobody gains fat on a business trip because hotel food is uniquely fattening. They gain it because every food decision gets made hungry, tired and on the spot. Ninety percent of this plan happens before you reach the airport, so that on the trip you execute rather than negotiate with yourself in a hotel lobby at 11pm.",
     features: [
-      "Deliberately lowered targets — maintenance is the win on a short trip",
+      "Deliberately lowered targets: maintenance is the win on a short trip",
       "Airport, hotel buffet and client dinner playbooks",
       "What to pre-decide before you leave for the airport",
       "Separate approach for trips under four days and over a week",
       "A re-entry plan for the days after you land"
     ],
     objection:
-      "\"Travel is out of my control.\" — The trip isn't the problem. Deciding while hungry and tired is."
+      "\"Travel is out of my control.\" The trip isn't the problem. Deciding while hungry and tired is."
   },
   {
     id: "weekend-eating-control",
@@ -208,9 +208,9 @@ const PRODUCTS = [
     commitment: "Two meals, chosen",
     image: IMG("1606858374191-c18040e98ad7"),
     headline: "Five disciplined days. Two days that erase them.",
-    blurb: "The maths of why your weight hasn't moved in four months — and the two-event fix.",
+    blurb: "The maths of why your weight hasn't moved in four months, and the two-event fix.",
     description:
-      "You're not failing. You're running a deficit for five days and a surplus for two, which nets out to nothing — and that's why the scale hasn't moved in four months. This is the system for eating normally on Friday night, Saturday brunch and Sunday family lunch without erasing the week.",
+      "You're not failing. You're running a deficit for five days and a surplus for two, which nets out to nothing, and that's why the scale hasn't moved in four months. This is the system for eating normally on Friday night, Saturday brunch and Sunday family lunch without erasing the week.",
     features: [
       "The weekly arithmetic, laid out plainly",
       "The two-event rule for Friday, Saturday and Sunday",
@@ -219,7 +219,7 @@ const PRODUCTS = [
       "No foods banned outright"
     ],
     objection:
-      "\"I don't want to give up my weekend.\" — You're not giving up anything. You're choosing which two meals matter."
+      "\"I don't want to give up my weekend.\" You're not giving up anything. You're choosing which two meals matter."
   },
   {
     id: "desk-job-mobility",
@@ -245,7 +245,7 @@ const PRODUCTS = [
       "What to do on the days your lower back is already sore"
     ],
     objection:
-      "\"Stretching hasn't helped.\" — Stretching isn't the fix. Frequency of position change is."
+      "\"Stretching hasn't helped.\" Stretching isn't the fix. Frequency of position change is."
   },
   {
     id: "three-day-executive-workout",
@@ -262,16 +262,16 @@ const PRODUCTS = [
     headline: "156 sessions a year. That's the whole secret.",
     blurb: "Three full-body sessions an hour each, with the rests that actually build strength.",
     description:
-      "Three full-body sessions a week, done consistently for a year, beat five sessions done for six weeks and abandoned. This is not the beginner version of a real programme — for a working professional it is the real programme. Every muscle gets trained three times a week, and every session is self-contained, so two sessions still trains everything.",
+      "Three full-body sessions a week, done consistently for a year, beat five sessions done for six weeks and abandoned. This is not the beginner version of a real programme. For a working professional it is the real programme. Every muscle gets trained three times a week, and every session is self-contained, so two sessions still trains everything.",
     features: [
       "Three self-contained full-body sessions",
       "Full 2–4 minute rests, because that is what builds strength",
       "Every muscle trained three times a week",
       "A session you can drop to two without losing the week",
-      "Budget an hour and take the rests — that's the method"
+      "Budget an hour and take the rests: that's the method"
     ],
     objection:
-      "\"Is three days enough?\" — Three days for a year beats five days for six weeks. Every time."
+      "\"Is three days enough?\" Three days for a year beats five days for six weeks. Every time."
   }
 ];
 
@@ -285,7 +285,7 @@ function getProduct(id) {
 }
 
 /* =========================================================
-   PAYMENT LINKS — one Razorpay link per product.
+   PAYMENT LINKS: one Razorpay link per product.
 
    NOT IN USE RIGHT NOW: the files are free, and checkout hands them
    over as soon as the form is submitted. Kept here so switching
@@ -295,7 +295,7 @@ function getProduct(id) {
    HOW TO FILL THIS IN
    1. Razorpay Dashboard → Payment Links → Create Payment Link.
    2. Set the amount to match the price above, name it after the
-      product, and turn ON "Collect customer email" — the delivery
+      product, and turn ON "Collect customer email": the delivery
       automation needs that address.
    3. Set the redirect/callback URL to:  thank-you.html on your domain
    4. Paste the link URL below, against the matching product id.
@@ -324,7 +324,7 @@ function getPaymentLink(id) {
 
 
 /* =========================================================
-   Digital files — what the reader downloads.
+   Digital files: what the reader downloads.
    Paths are relative to the site root and case-sensitive on most
    hosts, so keep the "Products" folder spelled exactly like this.
    The bundle grants every individual PDF rather than a file of its own.

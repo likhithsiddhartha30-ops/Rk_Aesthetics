@@ -1,13 +1,15 @@
 /* =========================================================
-   RK AESTHETICS — Site behavior
+   RK AESTHETICS / Site behavior
 
-   Delivery model: the files are free at the moment. Someone picks
-   what they want, fills in their details at checkout, and the
-   downloads are handed over immediately — the form is a lead capture,
-   not a payment.
+   Two modes, decided by CONFIG.FUNCTIONS_BASE in js/config.js:
 
-   Payment links are still defined in products.js, unused, ready for
-   the day this goes paid.
+   PAID (configured) / checkout prices the cart on the server, Razorpay
+   collects the money, and the download links come back signed and
+   short-lived. This browser can never unlock a file on its own.
+
+   FREE (not configured) / the launch behaviour: fill in the form and
+   the files are handed over. The mode the site stays in until the
+   Supabase functions are deployed and configured.
    ========================================================= */
 
 /* ---------- helpers ---------- */
@@ -83,17 +85,155 @@ function cartSubtotal() {
   return cartLines().reduce((sum, l) => sum + l.product.price, 0);
 }
 
-/* ---------- library (what the visitor has claimed) ----------
+/* ---------- orders this device has paid for ----------
+   The order uuid is the buyer's key to their files. It is kept here
+   so the downloads page works on a refresh or a later visit, and it
+   is the only thing about the purchase this browser stores — the
+   files themselves come from the server, signed and short-lived.
+   ----------------------------------------------------- */
+const ORDERS_KEY = "rkaesthetics_orders";
+
+function getOrders() {
+  try {
+    return JSON.parse(localStorage.getItem(ORDERS_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function rememberOrder(order) {
+  const orders = getOrders().filter((o) => o.id !== order.id);
+  orders.unshift(order);
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders.slice(0, 20)));
+}
+
+/* ---------- talking to the Edge Functions ---------- */
+async function callFunction(name, payload) {
+  const res = await fetch(functionUrl(name), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  let body = {};
+  try {
+    body = await res.json();
+  } catch (e) {
+    /* a non-JSON error page: fall through to the status check */
+  }
+
+  if (!res.ok) {
+    const err = new Error(body.error || `Request failed (${res.status})`);
+    err.detail = body.detail;
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+
+/* Razorpay's checkout script is only needed on the checkout page, so
+   it is fetched when payment actually starts rather than on load. */
+let razorpayScriptPromise = null;
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve(window.Razorpay);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = CONFIG.RAZORPAY_CHECKOUT_JS;
+    script.onload = () => resolve(window.Razorpay);
+    script.onerror = () => reject(new Error("Could not load the payment window"));
+    document.head.appendChild(script);
+  });
+  return razorpayScriptPromise;
+}
+
+/* ---------- the payment itself ----------
+   create-order prices the cart on the server, Razorpay collects the
+   money, verify-payment checks the signature and returns the files.
+   Nothing here can unlock a download on its own.
+   ---------------------------------------- */
+async function payAndCollect(customer, onStage) {
+  const stage = onStage || (() => {});
+
+  stage("Setting up your order…");
+  const order = await callFunction("create-order", {
+    product_ids: getCart().map((i) => i.id),
+    full_name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    city: customer.city,
+    state: customer.state,
+    gstin: customer.gstin,
+    notes: customer.notes
+  });
+
+  stage("Opening the payment window…");
+  const Razorpay = await loadRazorpay();
+
+  return new Promise((resolve, reject) => {
+    const rzp = new Razorpay({
+      key: order.razorpay_key_id,
+      order_id: order.razorpay_order_id,
+      amount: order.amount,
+      currency: order.currency,
+      name: CONFIG.BRAND_NAME,
+      description: `${order.items_label || "Your order"} · ${order.order_number}`,
+      prefill: order.prefill,
+      notes: { order_id: order.order_id },
+      theme: { color: CONFIG.BRAND_COLOR },
+
+      handler: async (response) => {
+        try {
+          stage("Confirming your payment…");
+          const verified = await callFunction("verify-payment", {
+            order_id: order.order_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          });
+          resolve({ order, verified });
+        } catch (err) {
+          // The money may well have left their account, so never say
+          // the payment failed — point them at support with the id.
+          err.paymentTaken = true;
+          err.paymentId = response.razorpay_payment_id;
+          err.orderId = order.order_id;
+          reject(err);
+        }
+      },
+
+      modal: {
+        ondismiss: () => {
+          const err = new Error("Payment window closed before paying.");
+          err.dismissed = true;
+          reject(err);
+        }
+      }
+    });
+
+    rzp.on("payment.failed", (e) => {
+      const err = new Error(
+        e?.error?.description || "The payment did not go through."
+      );
+      err.failed = true;
+      reject(err);
+    });
+
+    rzp.open();
+  });
+}
+
+/* ---------- library (free mode only) ----------
    Nothing is charged for right now: filling in the form on the
    checkout page unlocks the files. This list is what the site has
    handed over, kept in the browser.
 
    When payment is switched back on, this is the piece that must move
-   to the server — a browser deciding its own entitlements is fine for
+   to the server: a browser deciding its own entitlements is fine for
    free files and useless for paid ones.
    ------------------------------------------------------------ */
 const LIBRARY_KEY = "rkaesthetics_library";
-const ORDERS_KEY = "rkaesthetics_orders";
 
 function getLibrary() {
   try {
@@ -107,15 +247,7 @@ function ownsProduct(id) {
   return getLibrary().includes(id);
 }
 
-function getOrders() {
-  try {
-    return JSON.parse(localStorage.getItem(ORDERS_KEY)) || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-/* Files claimed, de-duplicated across overlapping products — the
+/* Files claimed, de-duplicated across overlapping products: the
    bundle contains what the singles contain. */
 function libraryFiles() {
   const seen = new Set();
@@ -159,10 +291,7 @@ function completeOrder(customer) {
     customer: customer || null,
     items: lines.map((l) => ({ id: l.id, name: l.product.name, price: l.product.price }))
   };
-  const orders = getOrders();
-  orders.unshift(order);
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-
+  rememberOrder(order);
   saveCart([]);
   return order;
 }
@@ -197,7 +326,7 @@ function saveAs(href, filename) {
 }
 
 /* Browsers hand PDFs to their built-in viewer whenever they can, so
-   the file is fetched and saved from a blob — a blob has no viewer to
+   the file is fetched and saved from a blob: a blob has no viewer to
    open in, it can only be saved. fetch() is unavailable over file://,
    so opening the site straight from disk falls back to a plain
    download-attribute click. Either way the page never navigates,
@@ -245,17 +374,157 @@ function renderOwnedBox(p) {
   const box = document.createElement("div");
   box.className = "owned-box";
   box.innerHTML = `
-    <h4>${viaBundle ? "Included in a bundle you have — download it below" : "You already have this — download it below"}</h4>
+    <h4>${viaBundle ? "Included in a bundle you have. Download it below" : "You already have this. Download it below"}</h4>
     <ul class="download-list">${downloadListHTML(getProductFiles(p.id))}</ul>
     <a class="link-under" href="downloads.html">All your downloads</a>
   `;
   info.querySelector(".product-actions").insertAdjacentElement("afterend", box);
 }
 
-/* ---------- downloads page ---------- */
+/* ---------- downloads page, paid mode ----------
+   The files live in a private bucket, so the links are fetched from
+   the server each visit and expire fifteen minutes later. Nothing
+   here decides who may download what: order-files refuses any order
+   that has not actually been paid for.
+   ----------------------------------------------- */
+function renderPaidDownloads() {
+  const banner = document.getElementById("order-banner");
+  const emptyEl = document.getElementById("downloads-empty");
+  const listWrap = document.getElementById("downloads-list");
+
+  const known = getOrders();
+  const orderId = new URLSearchParams(location.search).get("order") || known[0]?.id;
+
+  if (!orderId) {
+    listWrap.style.display = "none";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  emptyEl.style.display = "none";
+  listWrap.style.display = "block";
+  listWrap.innerHTML = `<p class="downloads-loading">Fetching your files…</p>`;
+
+  load(orderId);
+
+  async function load(id) {
+    try {
+      const data = await callFunction("order-files", { order_id: id });
+
+      // Keep it on this device so a later visit still works.
+      rememberOrder({
+        id: data.order_id,
+        number: data.order_number,
+        date: data.paid_at,
+        total: data.total_inr,
+        items: (data.items || []).map((i) => ({
+          name: i.product_name,
+          price: i.unit_price_inr
+        }))
+      });
+
+      if (banner) {
+        banner.innerHTML = `
+          <h3>Order ${data.order_number} confirmed</h3>
+          <p>${(data.items || []).map((i) => i.product_name).join(", ")} &middot; ${formatPrice(data.total_inr)} paid. Your files are below.</p>`;
+        banner.style.display = "block";
+      }
+
+      if (!data.files || !data.files.length) {
+        listWrap.innerHTML = `<p class="downloads-loading">This order has no files attached. Please contact support.</p>`;
+        return;
+      }
+
+      listWrap.innerHTML = `
+        <div class="download-group">
+          <div class="download-group-head">
+            <div>
+              <span class="cat">Your files</span>
+              <h3>${data.files.length} PDF${data.files.length !== 1 ? "s" : ""}</h3>
+              <p>Links stay valid for about fifteen minutes. Reload this page for fresh ones.</p>
+            </div>
+          </div>
+          <ul class="download-list">${serverDownloadListHTML(data.files)}</ul>
+        </div>
+        ${otherOrdersHTML(id)}`;
+
+      wireOrderSwitch();
+    } catch (err) {
+      // A payment confirmed a second ago may not have landed yet.
+      const notReady = err.status === 404;
+      listWrap.innerHTML = `
+        <div class="downloads-problem">
+          <h3>${notReady ? "Your files are not ready yet" : "We could not load your files"}</h3>
+          <p>${escapeAttr(err.detail || err.message)}</p>
+          <button type="button" class="btn btn-primary" id="downloads-retry">Try again</button>
+          <a class="btn btn-outline" href="${escapeAttr(CONFIG.SUPPORT_PAGE)}">Contact support</a>
+          <p class="downloads-ref">Order reference: <b>${escapeAttr(id)}</b></p>
+        </div>
+        ${otherOrdersHTML(id)}`;
+
+      document
+        .getElementById("downloads-retry")
+        .addEventListener("click", () => load(id));
+      wireOrderSwitch();
+    }
+  }
+
+  /* The signed URL already carries a filename and an attachment
+     header, so a plain link downloads correctly. No blob fetch here:
+     the file is on another origin. */
+  function serverDownloadListHTML(files) {
+    return files
+      .map(
+        (f) => `
+        <li class="download-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+          <span class="download-name">${f.name}</span>
+          <a class="btn btn-outline btn-sm" href="${escapeAttr(f.url)}" download="${escapeAttr(f.filename)}" rel="noopener">Download PDF</a>
+        </li>`
+      )
+      .join("");
+  }
+
+  function otherOrdersHTML(currentId) {
+    const others = getOrders().filter((o) => o.id !== currentId);
+    if (!others.length) return "";
+    return `
+      <div class="other-orders">
+        <h4>Earlier orders on this device</h4>
+        <ul>
+          ${others
+            .map(
+              (o) => `
+            <li>
+              <button type="button" data-order="${escapeAttr(o.id)}">
+                ${escapeAttr(o.number || o.id)}
+                <span>${(o.items || []).map((i) => i.name).join(", ") || "View files"}</span>
+              </button>
+            </li>`
+            )
+            .join("")}
+        </ul>
+      </div>`;
+  }
+
+  function wireOrderSwitch() {
+    document.querySelectorAll("[data-order]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        location.href = "downloads.html?order=" + encodeURIComponent(btn.dataset.order);
+      });
+    });
+  }
+}
+
+/* ---------- downloads page, free mode ---------- */
 function initDownloadsPage() {
   const wrap = document.getElementById("downloads-page");
   if (!wrap) return;
+
+  if (paymentsEnabled()) {
+    renderPaidDownloads();
+    return;
+  }
 
   const orderId = new URLSearchParams(location.search).get("order");
   const banner = document.getElementById("order-banner");
@@ -263,7 +532,7 @@ function initDownloadsPage() {
     const order = getOrders().find((o) => o.id === orderId);
     if (order) {
       banner.innerHTML = `
-        <h3>You're all set — ${order.id}</h3>
+        <h3>You're all set: ${order.id}</h3>
         <p>${order.items.map((i) => i.name).join(", ")}. Your files are ready below, and this page stays available on this device.</p>`;
       banner.style.display = "block";
     }
@@ -362,10 +631,15 @@ function initNav() {
    ---------------------------------- */
 function claimButtonHTML(p, extraClass) {
   const cls = "btn btn-primary" + (extraClass ? " " + extraClass : "");
-  if (hasAccess(p.id)) {
+
+  // Free mode remembers what it handed over. Paid mode does not, so
+  // once payment is on this stays a buy button.
+  if (!paymentsEnabled() && hasAccess(p.id)) {
     return `<a class="btn btn-outline${extraClass ? " " + extraClass : ""}" href="downloads.html">Download it again</a>`;
   }
-  return `<button type="button" class="${cls}" data-claim="${escapeAttr(p.id)}">Get it free</button>`;
+
+  const label = paymentsEnabled() ? `Buy now &middot; ${formatPrice(p.price)}` : "Get it free";
+  return `<button type="button" class="${cls}" data-claim="${escapeAttr(p.id)}">${label}</button>`;
 }
 
 function initClaimButtons(root) {
@@ -471,13 +745,13 @@ function closeCartDrawer() {
   }, 280);
 }
 
-/* One product, one copy — tells the visitor which happened. */
+/* One product, one copy: tells the visitor which happened. */
 function addToCartAndOpen(id, name) {
   if (addToCart(id)) {
     openCartDrawer("Added to cart");
   } else {
     openCartDrawer("Already in your cart");
-    showToast(`"${name}" is already in your cart — one copy is all you need.`);
+    showToast(`"${name}" is already in your cart. One copy is all you need.`);
   }
   document.dispatchEvent(new CustomEvent("cart:changed"));
 }
@@ -599,7 +873,7 @@ function initProductPage() {
   const params = new URLSearchParams(location.search);
   const p = getProduct(params.get("id")) || PRODUCTS[0];
 
-  document.title = `${p.name} — RK Aesthetics`;
+  document.title = `${p.name} | RK Aesthetics`;
 
   wrap.innerHTML = `
     <div class="product-cover">
@@ -620,13 +894,25 @@ function initProductPage() {
       </div>
       <div class="product-actions">
         ${claimButtonHTML(p, "btn-lg")}
-        <span class="free-note">Free while we're in launch — usually ${formatPrice(p.price)}.</span>
+        <span class="free-note">${
+          paymentsEnabled()
+            ? "Secure payment by Razorpay. UPI, card or netbanking."
+            : `Free while we're in launch, usually ${formatPrice(p.price)}.`
+        }</span>
       </div>
       <div class="delivery-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         <div>
-          <b>Yours to download in about thirty seconds.</b>
-          <span>Add it, tell us where to send updates, and the PDF downloads straight away. No payment, no card details.</span>
+          <b>${
+            paymentsEnabled()
+              ? "Downloads open the moment your payment clears."
+              : "Yours to download in about thirty seconds."
+          }</b>
+          <span>${
+            paymentsEnabled()
+              ? "Pay by UPI, card or netbanking in Razorpay's secure window. This site never sees your card details."
+              : "Add it, tell us where to send updates, and the PDF downloads straight away. No payment, no card details."
+          }</span>
         </div>
       </div>
       <ul class="included-list">
@@ -647,7 +933,11 @@ function initProductPage() {
   const claimBtn = wrap.querySelector("[data-claim]");
   if (claimBtn) {
     const syncClaimButton = () => {
-      claimBtn.textContent = inCart(p.id) ? "In your cart" : "Get it free";
+      claimBtn.innerHTML = inCart(p.id)
+        ? "In your cart"
+        : paymentsEnabled()
+          ? `Buy now &middot; ${formatPrice(p.price)}`
+          : "Get it free";
     };
     syncClaimButton();
     document.addEventListener("cart:changed", syncClaimButton);
@@ -828,7 +1118,7 @@ function initCartPage() {
    There is no payment API here: each product is paid for on its own
    hosted Razorpay page. One item is a straight redirect. Several
    items means several payments, because a Payment Link carries one
-   fixed amount — so the page says so plainly and nudges the bundle.
+   fixed amount, so the page says so plainly and nudges the bundle.
    ----------------------------------- */
 const CUSTOMER_KEY = "rkaesthetics_customer";
 
@@ -869,8 +1159,46 @@ function initCheckoutPage() {
     )
     .join("");
 
-  document.getElementById("checkout-subtotal").textContent = formatPrice(cartSubtotal());
-  document.getElementById("checkout-total").textContent = "Free";
+  const total = cartSubtotal();
+  document.getElementById("checkout-subtotal").textContent = formatPrice(total);
+  document.getElementById("checkout-total").textContent = paymentsEnabled()
+    ? formatPrice(total)
+    : "Free";
+
+  // The page ships worded for free mode; paid mode rewrites the parts
+  // that would otherwise be a lie.
+  if (paymentsEnabled()) {
+    const set = (sel, text) => {
+      const el = document.querySelector(sel);
+      if (el) el.textContent = text;
+    };
+    set(".page-header h1", "Checkout");
+    set(
+      ".page-header p",
+      "Confirm your details, then pay securely with Razorpay. Your downloads open as soon as the payment clears."
+    );
+    set(".payment-placeholder b", "Payment by Razorpay");
+    set(
+      ".payment-placeholder p",
+      "UPI, card or netbanking in a secure window. This site never sees your card details."
+    );
+    set(".checkout-summary .summary-row.total span:first-child", "Total");
+    set('.checkout-form button[type="submit"]', `Pay ${formatPrice(total)}`);
+    set(
+      ".checkout-privacy",
+      "Your details are used for this order and to send your files. Payment is handled by Razorpay."
+    );
+    set(".secure-note", "One copy per product \u00b7 secure payment by Razorpay");
+
+    const consent = document.querySelector(".field-check .check span");
+    if (consent) {
+      consent.innerHTML =
+        'I understand these are digital files, delivered immediately, and I accept the <a href="terms.html">terms</a> and <a href="refunds.html">refund policy</a>.';
+    }
+
+    const listLabel = document.querySelector(".checkout-summary .summary-row span");
+    if (listLabel && listLabel.textContent === "List price") listLabel.textContent = "Subtotal";
+  }
   document.getElementById("checkout-count").textContent =
     `${lines.length} item${lines.length !== 1 ? "s" : ""}`;
 
@@ -887,7 +1215,7 @@ function initCheckoutPage() {
     email: (v) =>
       /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
         ? ""
-        : "Enter a valid email — this is where your files are sent.",
+        : "Enter a valid email. This is where your files are sent.",
     phone: (v) =>
       /^[6-9]\d{9}$/.test(v.replace(/[\s-]/g, ""))
         ? ""
@@ -951,11 +1279,89 @@ function initCheckoutPage() {
     };
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
 
-    // Nothing to charge: unlock the files and send them to the downloads.
-    const order = completeOrder(customer);
-    if (!order) return;
-    location.href = "downloads.html?order=" + encodeURIComponent(order.id);
+    if (!paymentsEnabled()) {
+      // Free mode: nothing to charge, so hand the files over.
+      const order = completeOrder(customer);
+      if (!order) return;
+      location.href = "downloads.html?order=" + encodeURIComponent(order.id);
+      return;
+    }
+
+    startPayment(customer, submitBtn);
   });
+
+  /* ---- paid mode ---- */
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  async function startPayment(customer, button) {
+    const label = button.textContent;
+    button.disabled = true;
+
+    try {
+      const { order, verified } = await payAndCollect(customer, (msg) => {
+        button.textContent = msg;
+      });
+
+      // Only the id is kept: the files come from the server each time.
+      rememberOrder({
+        id: order.order_id,
+        number: order.order_number,
+        date: new Date().toISOString(),
+        total: order.amount / 100,
+        customer,
+        items: cartLines().map((l) => ({
+          id: l.id,
+          name: l.product.name,
+          price: l.product.price
+        }))
+      });
+      saveCart([]);
+
+      location.href =
+        "downloads.html?order=" +
+        encodeURIComponent(verified.order_id || order.order_id);
+    } catch (err) {
+      button.disabled = false;
+      button.textContent = label;
+
+      if (err.dismissed) {
+        showToast("Payment cancelled. Your cart is still here.");
+        return;
+      }
+      if (err.paymentTaken) {
+        // Money may have moved but we could not confirm it. Never
+        // imply the payment failed.
+        showPaymentTrouble(err);
+        return;
+      }
+      showToast(err.message || "Could not start the payment. Please try again.");
+    }
+  }
+
+  /* Paid, but we could not confirm it. Give them the reference and a
+     way to reach a human rather than a dead end. */
+  function showPaymentTrouble(err) {
+    const box = document.getElementById("payment-trouble");
+    if (!box) {
+      showToast("Payment taken but not confirmed. Please contact support.");
+      return;
+    }
+    box.innerHTML = `
+      <h3>Your payment went through, but we could not confirm it</h3>
+      <p>Nothing is lost. Send us the reference below and we will email your files straight away, usually within the hour.</p>
+      <div class="trouble-refs">
+        <div><span>Payment reference</span><b>${escapeAttr(err.paymentId || "unknown")}</b></div>
+        <div><span>Order reference</span><b>${escapeAttr(err.orderId || "unknown")}</b></div>
+      </div>
+      <a class="btn btn-primary" href="${escapeAttr(CONFIG.SUPPORT_PAGE)}">Contact support</a>
+      <button type="button" class="btn btn-outline" id="retry-files">Try loading my files again</button>`;
+    box.style.display = "block";
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    document.getElementById("retry-files").addEventListener("click", () => {
+      location.href = "downloads.html?order=" + encodeURIComponent(err.orderId || "");
+    });
+  }
 }
 
 /* ---------- thank-you page ---------- */
@@ -964,7 +1370,7 @@ function initThankYouPage() {
   if (!page) return;
 
   // Razorpay appends its own ids to the redirect URL. They are useful
-  // to show back to the buyer for support, and nothing else — access
+  // to show back to the buyer for support, and nothing else. Access
   // is granted by the webhook, never by this page.
   const params = new URLSearchParams(location.search);
   const paymentId =

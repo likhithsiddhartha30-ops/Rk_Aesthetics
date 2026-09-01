@@ -434,3 +434,57 @@ on conflict (id) do nothing;
 -- No storage policies for regular users on purpose: nobody reads this
 -- bucket directly. Your server creates signed URLs with the service_role
 -- key, which is the only thing that should ever touch these objects.
+
+
+-- =============================================================
+-- 9. GUEST CHECKOUT
+-- There is no login on the site: an order is identified by its own
+-- uuid, which the buyer receives after paying and which is useless
+-- until the order is marked paid. Everything below relaxes the
+-- account-shaped assumptions above so a guest order works.
+-- =============================================================
+
+-- orders.user_id is already nullable; entitlements are only written
+-- for signed-in buyers, so guests simply have none.
+
+-- Downloads are logged against the order when there is no user.
+alter table public.download_events alter column user_id drop not null;
+alter table public.download_events
+  add column if not exists order_id uuid references public.orders (id) on delete set null;
+
+create index if not exists download_events_order_idx
+  on public.download_events (order_id, created_at desc);
+
+-- Granting entitlements only makes sense for a signed-in buyer.
+create or replace function public.grant_order_entitlements(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+begin
+  select user_id into v_user_id from public.orders where id = p_order_id;
+
+  update public.orders
+     set status = 'paid', paid_at = coalesce(paid_at, now())
+   where id = p_order_id;
+
+  -- Guest order: paid is all there is to record.
+  if v_user_id is null then
+    return;
+  end if;
+
+  insert into public.entitlements (user_id, product_id, order_id)
+  select v_user_id, oi.product_id, p_order_id
+  from public.order_items oi
+  where oi.order_id = p_order_id
+  on conflict (user_id, product_id) do update
+    set revoked_at = null;      -- re-buying after a refund restores access
+end;
+$$;
+
+-- No client ever reads orders directly in the guest flow: the Edge
+-- Functions do it with the service role. The RLS policies above stay
+-- as they are, which means an anonymous browser can read nothing.

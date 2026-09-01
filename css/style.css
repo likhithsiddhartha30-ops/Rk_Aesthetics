@@ -1,5 +1,5 @@
 /* =========================================================
-   RK AESTHETICS — Digital Fitness Products
+   RK AESTHETICS / Digital Fitness Products
    Editorial design system: warm paper, ink, photography
    ========================================================= */
 
@@ -60,7 +60,7 @@ h1, h2, h3 {
 }
 section { padding: 104px 0; }
 
-/* Small caps micro-label — used as the connective tissue of the layout */
+/* Small caps micro-label, used as the connective tissue of the layout */
 .eyebrow {
   display: block;
   font-size: 10.5px;
@@ -122,7 +122,7 @@ section { padding: 104px 0; }
 .btn-sm { padding: 11px 20px; font-size: 10.5px; }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Text link with a rule under it — quieter than a button */
+/* Text link with a rule under it, quieter than a button */
 .link-under {
   display: inline-block;
   font-size: 11.5px;
@@ -1206,7 +1206,7 @@ footer .logo span { color: rgba(255,255,255,0.55); }
 }
 
 /* =========================================================
-   DOWNLOADS — the buyer's library
+   DOWNLOADS / the buyer's library
    ========================================================= */
 .order-banner {
   background: var(--paper-2);
@@ -1300,7 +1300,7 @@ footer .logo span { color: rgba(255,255,255,0.55); }
 }
 
 /* =========================================================
-   RESULTS — client transformation gallery
+   RESULTS / client transformation gallery
    ========================================================= */
 .results { border-top: 1px solid var(--line); }
 .results-grid {
@@ -1647,7 +1647,7 @@ footer .logo span { color: rgba(255,255,255,0.55); }
 }
 
 /* =========================================================
-   BUY FLOW — delivery note, thank-you page
+   BUY FLOW / delivery note, thank-you page
    ========================================================= */
 .delivery-note {
   display: grid;
@@ -1775,4 +1775,163 @@ footer .logo span { color: rgba(255,255,255,0.55); }
   font-size: 12.5px;
   color: var(--ink-faint);
   align-self: center;
+}
+
+/* =========================================================
+   LEGAL PAGES / terms, privacy, refunds, delivery
+   ========================================================= */
+.legal { padding-bottom: 96px; }
+.legal .updated {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin-bottom: 34px;
+}
+.legal h2 {
+  font-family: var(--ff-display);
+  font-size: 25px;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+  padding-top: 34px;
+  border-top: 1px solid var(--line-soft);
+}
+.legal h2:first-of-type { padding-top: 0; border-top: 0; }
+.legal h3 {
+  font-family: var(--ff-body);
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 26px 0 8px;
+}
+.legal p { font-size: 14.5px; margin: 0 0 16px; }
+.legal p strong { color: var(--ink); font-weight: 600; }
+.legal a { border-bottom: 1px solid var(--line); }
+.legal a:hover { border-bottom-color: var(--ink); color: var(--ink); }
+.legal ul { margin: 0 0 20px; }
+.legal li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 9px;
+  font-size: 14.5px;
+  color: var(--ink-soft);
+}
+.legal li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 11px;
+  width: 8px; height: 1px;
+  background: var(--ink);
+}
+.legal table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 22px;
+}
+.legal th, .legal td {
+  text-align: left;
+  vertical-align: top;
+  padding: 11px 16px 11px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.legal th {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  white-space: nowrap;
+  width: 34%;
+}
+.legal tr:first-child th { border-top: 1px solid var(--line); }
+@media (max-width: 620px) {
+  .legal th { width: 40%; }
+  .legal table { font-size: 13px; }
+}
+
+/* =========================================================
+   PAYMENT STATES
+   ========================================================= */
+.downloads-loading {
+  padding: 30px 0;
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+.downloads-problem {
+  background: var(--paper-2);
+  padding: 28px 30px;
+  margin-bottom: 30px;
+}
+.downloads-problem h3 { font-size: 24px; margin-bottom: 8px; }
+.downloads-problem p { font-size: 14px; }
+.downloads-problem .btn { margin: 6px 10px 0 0; }
+.downloads-ref {
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: 16px;
+  word-break: break-all;
+}
+.downloads-ref b { font-family: var(--ff-body); font-weight: 600; }
+
+.other-orders { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 24px; }
+.other-orders h4 {
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.other-orders button {
+  background: none;
+  border: none;
+  padding: 10px 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--ff-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line-soft);
+  width: 100%;
+}
+.other-orders button span {
+  display: block;
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  margin-top: 3px;
+}
+.other-orders button:hover { color: var(--ink-soft); }
+
+.payment-trouble {
+  background: var(--paper-2);
+  border-left: 3px solid var(--danger);
+  padding: 26px 28px;
+  margin-top: 26px;
+}
+.payment-trouble h3 { font-size: 23px; margin-bottom: 8px; }
+.payment-trouble p { font-size: 14px; }
+.payment-trouble .btn { margin: 4px 10px 0 0; }
+.trouble-refs {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+.trouble-refs span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.trouble-refs b {
+  font-family: var(--ff-body);
+  font-size: 13.5px;
+  word-break: break-all;
 }
