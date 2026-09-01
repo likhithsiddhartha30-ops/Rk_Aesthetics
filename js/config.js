@@ -5,17 +5,17 @@
 
    FUNCTIONS_BASE is where the API lives.
 
-   PHP hosting, using the api/ folder in this repo (see SETUP-PHP.md):
+   The PHP API in this repo's api/ folder (see SETUP-PHP.md):
      FUNCTIONS_BASE: "/api"      <- the API sits on the same domain
      API_SUFFIX:     ".php"
 
-   Supabase Edge Functions instead (see supabase/SETUP.md):
-     FUNCTIONS_BASE: "https://YOUR-REF.supabase.co/functions/v1"
-     API_SUFFIX:     ""
+   API_SUFFIX exists so the same frontend can talk to an API without
+   file extensions, if the backend is ever moved somewhere else.
 
    Nothing secret belongs in this file. It is served to every visitor.
-   The Razorpay key id arrives from the server at checkout time, and
-   the key secret never leaves the server.
+   No payment credentials belong here either: the browser is only
+   ever handed a PhonePe URL to go to, and the client secret never
+   leaves the server.
 
    Until FUNCTIONS_BASE is filled in, the shop still shows prices and
    still takes people through checkout, but the payment step has
@@ -27,15 +27,13 @@
 const CONFIG = {
   FUNCTIONS_BASE: "",
 
-  // ".php" for the PHP API in api/, "" for Supabase Edge Functions.
+  // ".php" for the PHP API in api/. "" for an API without extensions.
   API_SUFFIX: ".php",
 
-  // Razorpay's checkout script, loaded only on the checkout page.
-  RAZORPAY_CHECKOUT_JS: "https://checkout.razorpay.com/v1/checkout.js",
-
-  // Shown on the Razorpay payment window.
+  // PhonePe hosts its own payment page, so there is no script to load
+  // and no branding to pass: that is configured in your PhonePe
+  // dashboard instead.
   BRAND_NAME: "RK Aesthetics",
-  BRAND_COLOR: "#16150f",
 
   // Where buyers should write when a payment goes wrong.
   SUPPORT_PAGE: "contact.html"

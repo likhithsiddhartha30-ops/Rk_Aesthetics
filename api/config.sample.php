@@ -2,12 +2,11 @@
 /**
  * RK AESTHETICS — API configuration
  *
- * THIS FILE HOLDS SECRETS. It is excluded from git on purpose. Copy
- * config.sample.php to config.php on the server and fill it in there;
- * never commit the filled-in version.
+ * THIS FILE HOLDS SECRETS. Copy it to config.php on the server and
+ * fill that in; config.php is excluded from git on purpose. Never
+ * commit the filled-in version.
  *
- * Nothing here is ever sent to the browser: every value is used
- * server-side only.
+ * Nothing here is ever sent to the browser.
  */
 
 if (!defined('RK_APP')) {
@@ -17,34 +16,44 @@ if (!defined('RK_APP')) {
 }
 
 return [
-    /* ---------------- Razorpay ---------------- */
-    // Dashboard → Account & Settings → API Keys.
-    // Start with test keys (rzp_test_...) and switch to live later.
-    'razorpay_key_id'     => 'rzp_test_xxxxxxxxxxxxx',
-    'razorpay_key_secret' => 'xxxxxxxxxxxxxxxxxxxxxxxx',
+    /* ---------------- PhonePe ----------------
+     * From the PhonePe Business dashboard, under Developer Settings.
+     *
+     * These are Standard Checkout v2 credentials. If PhonePe gave you
+     * a merchantId + saltKey + saltIndex instead, that is the older
+     * PG API and this code will not match it — say so and the calls
+     * in lib.php need swapping for the /pg/v1/pay + X-VERIFY style.
+     */
+    'phonepe_client_id'      => 'YOUR_CLIENT_ID',
+    'phonepe_client_secret'  => 'YOUR_CLIENT_SECRET',
+    'phonepe_client_version' => '1',
 
-    // Dashboard → Settings → Webhooks. Any long random string, as
-    // long as it matches what you type into Razorpay.
-    'razorpay_webhook_secret' => 'change-me-to-something-long-and-random',
+    // 'sandbox' while testing, 'production' when you go live.
+    'phonepe_env' => 'sandbox',
+
+    /* Webhook credentials. You choose these yourself in the PhonePe
+       dashboard when adding the webhook, and repeat them here. */
+    'phonepe_webhook_username' => 'change-me',
+    'phonepe_webhook_password' => 'change-me-to-something-long',
 
     /* ---------------- This app ---------------- */
-    // Used to sign download links. Any long random string; changing
-    // it invalidates every link already issued.
-    'app_secret' => 'change-me-too-something-else-long-and-random',
+    // Signs download links. Any long random string; changing it
+    // invalidates every link already issued.
+    'app_secret' => 'change-me-to-something-long-and-random',
 
     // Where the PDFs live. KEEP THIS OUTSIDE THE WEB ROOT, so nobody
     // can request a file directly. On cPanel that usually means
-    // something like /home/youruser/rk-products
+    // something like /home/youruser/rk-private/products
     'storage_path' => __DIR__ . '/../../rk-private/products',
 
     // How long a download link stays valid.
     'download_ttl' => 900, // 15 minutes
 
     /* ---------------- Database ----------------
-     * SQLite needs no setup and is plenty for this: one file, and the
-     * whole shop fits in it. Keep the file outside the web root too.
+     * SQLite needs no setup and is plenty for this. Keep the file
+     * outside the web root too.
      *
-     * For MySQL instead, use:
+     * For MySQL instead:
      *   'dsn'  => 'mysql:host=localhost;dbname=yourdb;charset=utf8mb4',
      *   'user' => 'dbuser',
      *   'pass' => 'dbpass',
@@ -54,14 +63,13 @@ return [
     'pass' => null,
 
     /* ---------------- Site ---------------- */
-    // The exact origin the shop is served from. Browsers block the
-    // API calls if this does not match.
+    // The exact origin the shop is served from. Used for CORS and to
+    // build the URL PhonePe sends the buyer back to.
     'allowed_origin' => 'https://rkaesthetics.com',
 
-    // Shown on the Razorpay payment window.
     'brand_name' => 'RK Aesthetics',
 
-    // Set true while testing to see real error messages in responses.
-    // Leave false in production: errors go to the log instead.
+    // true while testing: real error messages come back in responses.
+    // Leave false in production; errors go to the log instead.
     'debug' => false,
 ];
