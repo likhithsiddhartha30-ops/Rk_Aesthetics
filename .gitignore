@@ -11,3 +11,6 @@ supabase/.temp/
 
 # Paid products. Served from the private Supabase bucket, never from the site.
 Products/
+
+# API secrets live only on the server.
+api/config.php

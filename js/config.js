@@ -1,16 +1,21 @@
 /* =========================================================
    RK AESTHETICS — Site configuration
 
-   FILL THIS IN ONCE, after deploying the Supabase functions.
+   FILL THIS IN ONCE, when the backend is up.
 
-   FUNCTIONS_BASE is your project's Edge Function URL, which looks
-   like:  https://abcdefghijklm.supabase.co/functions/v1
-   Find it in Supabase -> Project Settings -> API -> Project URL,
-   then add /functions/v1 to the end.
+   FUNCTIONS_BASE is where the API lives.
+
+   PHP hosting, using the api/ folder in this repo (see SETUP-PHP.md):
+     FUNCTIONS_BASE: "/api"      <- the API sits on the same domain
+     API_SUFFIX:     ".php"
+
+   Supabase Edge Functions instead (see supabase/SETUP.md):
+     FUNCTIONS_BASE: "https://YOUR-REF.supabase.co/functions/v1"
+     API_SUFFIX:     ""
 
    Nothing secret belongs in this file. It is served to every visitor.
    The Razorpay key id arrives from the server at checkout time, and
-   the key secret never leaves Supabase.
+   the key secret never leaves the server.
 
    Until FUNCTIONS_BASE is filled in, the shop still shows prices and
    still takes people through checkout, but the payment step has
@@ -21,6 +26,9 @@
 
 const CONFIG = {
   FUNCTIONS_BASE: "",
+
+  // ".php" for the PHP API in api/, "" for Supabase Edge Functions.
+  API_SUFFIX: ".php",
 
   // Razorpay's checkout script, loaded only on the checkout page.
   RAZORPAY_CHECKOUT_JS: "https://checkout.razorpay.com/v1/checkout.js",
@@ -39,5 +47,7 @@ function paymentsEnabled() {
 }
 
 function functionUrl(name) {
-  return CONFIG.FUNCTIONS_BASE.replace(/\/+$/, "") + "/" + name;
+  return (
+    CONFIG.FUNCTIONS_BASE.replace(/\/+$/, "") + "/" + name + (CONFIG.API_SUFFIX || "")
+  );
 }
