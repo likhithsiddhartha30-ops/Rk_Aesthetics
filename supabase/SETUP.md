@@ -1,8 +1,9 @@
 # Switching payments on
 
-The site works today without any of this: with `CONFIG.FUNCTIONS_BASE`
-empty in `js/config.js`, checkout hands the files over for free. Work
-through the steps below and the same checkout starts charging instead.
+The shop is complete apart from the payment step. With
+`CONFIG.FUNCTIONS_BASE` empty in `js/config.js`, checkout tells buyers
+that payment opens shortly and hands over nothing. Work through the
+steps below and the same checkout starts charging.
 
 Nothing here puts a secret in the repo. The Razorpay key secret and
 the Supabase service role key live only in Supabase.
@@ -122,33 +123,20 @@ GST invoice.
 
 ---
 
-## IMPORTANT: take the PDFs out of the repo before you charge
+## The PDFs are no longer published
 
-The files currently sit at public URLs like
-`https://likhithsiddhartha30-ops.github.io/Rk_Aesthetics/Products/01-the-corporate-diet-plan.pdf`
-because the free launch needed them there. While that is true, paying
-is optional: anyone who guesses a filename gets the product.
-
-Do this in the same change as setting `FUNCTIONS_BASE`, once the files
-are uploaded to the private bucket:
-
-```
-git rm -r --cached Products
-printf '\nProducts/\n' >> .gitignore
-git commit -m "Serve the PDFs from private storage only"
-git push
-```
-
-The local folder stays on your machine; it just stops being published.
+`Products/` has been removed from the repo and added to `.gitignore`,
+so the files are not served from the website at all. Your local copies
+are untouched: upload them to the private bucket in step 2.
 
 Two things to be honest about:
 
-**Git history keeps them.** Removing the folder stops future visitors
-finding the files, but anyone who cloned the repo, or who knows how to
-read its history, still has them. If that matters, the history has to
-be rewritten (`git filter-repo`) and force-pushed, and every existing
-clone becomes invalid. Ask before doing that.
+**Git history keeps them.** They were public during the free launch,
+so anyone who cloned the repo, or who knows how to read its history,
+still has them. If that matters the history must be rewritten
+(`git filter-repo`) and force-pushed, which invalidates every existing
+clone. Ask before doing that.
 
-**They are already out there.** Anything downloaded during the free
-period is gone for good. Price on the assumption that early copies are
-in circulation.
+**They are already out there.** Anything downloaded while the site was
+giving them away is gone for good. Price on the assumption that early
+copies are in circulation.

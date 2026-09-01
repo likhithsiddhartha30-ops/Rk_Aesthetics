@@ -34,8 +34,8 @@
 <div class="page-header">
   <div class="container">
     <div class="breadcrumb"><a href="index.html">Home</a> / <a href="cart.html">Cart</a> / Checkout</div>
-    <h1>Almost yours</h1>
-    <p>Tell us where to reach you and the downloads open on the next page. No payment, no card details. Free while we are in launch.</p>
+    <h1>Checkout</h1>
+    <p>Confirm your details, then pay securely with Razorpay. Your downloads open as soon as the payment clears.</p>
   </div>
 </div>
 
@@ -62,13 +62,13 @@
           <div class="field">
             <label for="co-email">Email address</label>
             <input type="email" id="co-email" name="email" autocomplete="email" required>
-            <span class="field-hint">We use this to send you updates and anything new. Your files download on the next page either way.</span>
+            <span class="field-hint">Your receipt and your download links go here, so check the spelling.</span>
             <span class="field-error" role="alert"></span>
           </div>
           <div class="field">
             <label for="co-phone">Mobile number</label>
             <input type="tel" id="co-phone" name="phone" autocomplete="tel-national" inputmode="numeric" placeholder="10-digit number" required>
-            <span class="field-hint">Only used if we need to reach you about your files.</span>
+            <span class="field-hint">Used for the payment receipt and if we need to reach you about the order.</span>
             <span class="field-error" role="alert"></span>
           </div>
         </fieldset>
@@ -99,25 +99,25 @@
         </fieldset>
 
         <fieldset>
-          <legend>Finish up</legend>
+          <legend>Payment</legend>
           <div class="payment-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             <div>
-              <b>Nothing to pay.</b>
-              <p>These are free during launch. Submit the form and every file you picked is ready to download on the next page.</p>
+              <b>Payment by Razorpay</b>
+              <p>UPI, card or netbanking in a secure window. This site never sees your card details.</p>
             </div>
           </div>
           <div class="field field-check">
             <label class="check">
               <input type="checkbox" id="co-consent" name="consent">
-              <span>I am happy to receive my files and occasional emails from RK Aesthetics, and I accept the <a href="contact.html">terms</a>.</span>
+              <span>I understand these are digital files, delivered immediately, and I accept the <a href="terms.html">terms</a> and <a href="refunds.html">refund policy</a>.</span>
             </label>
             <span class="field-error" role="alert"></span>
           </div>
         </fieldset>
 
-        <button type="submit" class="btn btn-primary btn-block btn-lg">Get my files</button>
-        <p class="checkout-privacy">Your details stay in this browser. They are kept only to fill this form in next time.</p>
+        <button type="submit" class="btn btn-primary btn-block btn-lg">Pay</button>
+        <p class="checkout-privacy">Your details are used for this order and to send your files. Payment is handled by Razorpay, and this site never sees your card details.</p>
 
         <div class="payment-trouble" id="payment-trouble" style="display:none"></div>
       </form>
@@ -126,13 +126,13 @@
         <div class="summary-box">
           <h3>Your order <span class="count" id="checkout-count"></span></h3>
           <div id="checkout-lines"></div>
-          <div class="summary-row"><span>List price</span><span id="checkout-subtotal">₹0</span></div>
+          <div class="summary-row"><span>Subtotal</span><span id="checkout-subtotal">₹0</span></div>
           <div class="summary-row"><span>Delivery</span><span>Instant download</span></div>
-          <div class="summary-row total"><span>You pay</span><span id="checkout-total">₹0</span></div>
+          <div class="summary-row total"><span>Total</span><span id="checkout-total">₹0</span></div>
           <a href="cart.html" class="link-under" style="display:inline-block;margin-top:18px">Edit cart</a>
           <div class="secure-note">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-            One copy per product · free during launch
+            One copy per product · secure payment by Razorpay
           </div>
         </div>
       </aside>

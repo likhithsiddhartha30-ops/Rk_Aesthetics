@@ -8,3 +8,6 @@ desktop.ini
 .env.*
 supabase/.env
 supabase/.temp/
+
+# Paid products. Served from the private Supabase bucket, never from the site.
+Products/

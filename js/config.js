@@ -12,15 +12,11 @@
    The Razorpay key id arrives from the server at checkout time, and
    the key secret never leaves Supabase.
 
-   While FUNCTIONS_BASE is empty the site stays in free mode: the
-   checkout form hands the files over without asking for payment,
-   exactly as it does today. Filling it in switches payment on.
+   Until FUNCTIONS_BASE is filled in, the shop still shows prices and
+   still takes people through checkout, but the payment step has
+   nowhere to go: it tells them payment opens shortly and hands over
+   nothing. Fill this in and the same checkout starts charging.
 
-   BEFORE YOU FILL IT IN: the PDFs are still published in this repo,
-   at Products/*.pdf, which makes paying optional for anyone who
-   guesses a filename. Upload them to the private Supabase bucket and
-   remove the public copies in the same change. supabase/SETUP.md has
-   the steps.
    ========================================================= */
 
 const CONFIG = {
