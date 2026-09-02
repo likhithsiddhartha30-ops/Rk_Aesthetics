@@ -1,0 +1,12 @@
+# Vercel serves this repo as static files, so anything left here is
+# downloadable by anyone. The PHP backend runs on separate hosting and
+# has no business being published as source: a request for
+# /api/download.php on the site returned the file itself, which is how
+# buyers ended up downloading download.php instead of their PDF.
+api/
+
+# The paid products. Never serve these from the site.
+Products/
+
+# Server setup notes, not a page.
+SETUP-PHP.md

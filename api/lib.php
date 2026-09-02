@@ -224,21 +224,36 @@ function download_url(string $orderId, string $fileId): string
         'expires' => $expires,
         'sig'     => sign_download($orderId, $fileId, $expires),
     ]);
-    return base_url() . '/api/download.php?' . $query;
+    return api_base_url() . '/download.php?' . $query;
 }
 
-function base_url(): string
+/**
+ * Where this API answers from, as the outside world sees it.
+ *
+ * This must be the API's own address, not the shop's. The two used to
+ * be the same host and the link was built from allowed_origin; once
+ * the API moved to its own subdomain that sent buyers to the site,
+ * which cannot run PHP, and handed them download.php's source code
+ * with a .pdf.php name instead of their file.
+ *
+ * Deriving it from the request that is being answered keeps it right
+ * either way: same host as the shop, its own subdomain, a folder, or
+ * the root. The webhook is answered on the same address Razorpay was
+ * given, so links built during a webhook are correct too.
+ */
+function api_base_url(): string
 {
-    $origin = trim((string) cfg('allowed_origin'));
-    if ($origin !== '' && str_starts_with($origin, 'http')) {
-        return rtrim($origin, '/');
-    }
-
-    // Misconfigured origin: build from the request so links still work.
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    return ($https ? 'https://' : 'http://') . $host;
+
+    /* The folder this script sits in: "" at the root of a subdomain,
+       "/api" when the shop and the API share a host. */
+    $dir = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/')));
+    $dir = rtrim($dir, '/');
+
+    return ($https ? 'https://' : 'http://') . $host . $dir;
 }
 
 /* ---------------- order helpers ---------------- */
