@@ -25,22 +25,11 @@
    ========================================================= */
 
 const CONFIG = {
-  /* Empty on purpose, for now.
-
-     The site is on Vercel, which serves these files beautifully but
-     cannot run the PHP in api/ — a POST to a .php file there comes
-     back 405, which buyers saw as "Request failed (405)" at the
-     moment they tried to pay. Empty is honest instead: checkout says
-     payment opens shortly and takes nobody's money.
-
-     Once the api/ folder is running on PHP hosting, set this to that
-     origin and payment turns on again:
-
-       FUNCTIONS_BASE: "https://api.rkaestheticss.com",
-
-     Cross-origin is fine: allowed_origin in api/config.php names this
-     site, and lib.php sends the CORS headers to match. */
-  FUNCTIONS_BASE: "",
+  /* The site is served from Vercel, which cannot run PHP, so the API
+     lives on Hostinger under its own subdomain. Cross-origin is fine:
+     allowed_origin in api/config.php names this site, and lib.php
+     sends the CORS headers to match. */
+  FUNCTIONS_BASE: "https://api.rkaestheticss.com",
 
   // ".php" for the PHP API in api/, "" for Supabase Edge Functions.
   API_SUFFIX: ".php",
@@ -60,8 +49,16 @@ const CONFIG = {
 
      Leave this empty and sign-in never appears: the downloads page
      falls back to the orders this browser remembers, exactly as it
-     behaved before. Fill in both keys to switch it on. */
-  MAGIC_PUBLISHABLE_KEY: "pk_live_12D441B6D73CF409",
+     behaved before. Fill in both keys to switch it on.
+
+     Held back deliberately: the server side of sign-in needs the
+     Magic PHP SDK, and composer install has not run on the host yet.
+     With a key here but no SDK there, buyers would be offered a
+     sign-in box that cannot answer. Put the key back the moment
+     composer install succeeds — nothing else has to change.
+
+       MAGIC_PUBLISHABLE_KEY: "pk_live_12D441B6D73CF409", */
+  MAGIC_PUBLISHABLE_KEY: "",
   MAGIC_SDK_JS: "https://cdn.jsdelivr.net/npm/magic-sdk/dist/magic.js",
 
   // Where buyers should write when a payment goes wrong.
