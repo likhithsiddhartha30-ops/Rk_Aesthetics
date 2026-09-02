@@ -70,8 +70,17 @@ return [
 
     /* ---------------- Site ---------------- */
     // The exact origin the shop is served from. Browsers block the
-    // API calls if this does not match.
-    'allowed_origin' => 'https://rkaestheticss.com',
+    // API calls if this does not match, and "exact" is stricter than
+    // it sounds: www.example.com and example.com are different
+    // origins, and so are http and https.
+    //
+    // Open the shop and copy what the address bar actually shows. If
+    // the host redirects the bare domain to www, the origin your
+    // buyers arrive on is the www one, whatever you typed to get
+    // there. Getting this wrong shows up as "Failed to fetch" at
+    // checkout, with nothing in the server log, because the browser
+    // refuses the request before it is ever sent.
+    'allowed_origin' => 'https://www.rkaestheticss.com',
 
     // Shown on the Razorpay payment window.
     'brand_name' => 'RK Aesthetics',
