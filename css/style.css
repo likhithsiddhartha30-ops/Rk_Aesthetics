@@ -1940,3 +1940,93 @@ footer .logo span { color: rgba(255,255,255,0.55); }
 .payment-trouble.payment-pending {
   border-left-color: var(--ink);
 }
+
+/* ---------- signing in on the downloads page ----------
+   Sits above the file list: an invitation when signed out, a quiet
+   line of status when signed in.
+   ------------------------------------------------------ */
+.downloads-auth {
+  margin-bottom: 28px;
+}
+
+.downloads-signin {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 26px 28px;
+}
+
+.downloads-signin h3 {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+
+.downloads-signin p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  max-width: 58ch;
+}
+
+.signin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.signin-row input {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  font: inherit;
+  color: var(--ink);
+}
+
+.signin-row input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.signin-status:empty {
+  display: none;
+}
+
+.signin-status {
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+/* Signed in: no card, just who you are and the way out. */
+.downloads-signin.is-signed-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0 0 16px;
+}
+
+.downloads-signin.is-signed-in p {
+  font-size: 14px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

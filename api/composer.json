@@ -1,0 +1,11 @@
+{
+    "name": "rk-aesthetics/api",
+    "description": "RK Aesthetics shop API",
+    "require": {
+        "php": ">=8.0",
+        "magiclabs/magic-admin-php": "^0.2"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

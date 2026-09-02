@@ -27,6 +27,21 @@ return [
     // long as it matches what you type into Razorpay.
     'razorpay_webhook_secret' => 'change-me-to-something-long-and-random',
 
+    /* ---------------- Magic (magic.link) ----------------
+     * Powers "sign in with your email" on the downloads page, so a
+     * buyer can reach their files from any device instead of only
+     * the browser they bought in.
+     *
+     * From the Magic dashboard. The SECRET key belongs here and
+     * nowhere else; the publishable key (pk_...) goes in
+     * js/config.js, which every visitor can read.
+     *
+     * Leave this empty and the shop works exactly as before: the
+     * downloads page falls back to the orders this browser
+     * remembers, and never offers a sign-in box.
+     */
+    'magic_secret_key' => '',
+
     /* ---------------- This app ---------------- */
     // Used to sign download links. Any long random string; changing
     // it invalidates every link already issued.
@@ -56,7 +71,7 @@ return [
     /* ---------------- Site ---------------- */
     // The exact origin the shop is served from. Browsers block the
     // API calls if this does not match.
-    'allowed_origin' => 'https://rkaesthetics.com',
+    'allowed_origin' => 'https://rkaestheticss.com',
 
     // Shown on the Razorpay payment window.
     'brand_name' => 'RK Aesthetics',

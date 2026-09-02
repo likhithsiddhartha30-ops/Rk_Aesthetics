@@ -98,6 +98,48 @@ Upload that one file. Payment is now on.
 
 ---
 
+
+---
+
+## 6. Email sign-in (optional)
+
+Without this, the downloads page shows only what the current browser
+remembers: buy on a phone and your laptop knows nothing about it.
+Turning it on lets a buyer type their email, click a link, and see
+every order they have ever paid for, from any device.
+
+Skip this section entirely if you do not want it. The shop sells and
+delivers exactly the same either way, and the sign-in box never
+appears until both keys below are filled in.
+
+**Install the SDK.** From the `api` folder on the server:
+
+```
+cd public_html/api
+composer install --no-dev
+```
+
+No composer on your host? Run the same command on your own machine and
+upload the `api/vendor` folder it creates. It is ordinary PHP; nothing
+in it is built for a particular server.
+
+**Add the keys.** Two of them, from the Magic dashboard, and they go in
+different places on purpose:
+
+| Key | Goes in | Who can read it |
+|---|---|---|
+| `pk_live_...` publishable | `js/config.js` → `MAGIC_PUBLISHABLE_KEY` | everyone, by design |
+| `sk_live_...` secret | `api/config.php` → `magic_secret_key` | the server only |
+
+Never put the secret key in `js/config.js`. That file is served to
+every visitor.
+
+**What it does not do.** Signing in shows a buyer the orders placed
+with that email address. It is not a password, it grants no admin
+access, and it cannot reveal anything about anyone else's orders.
+Someone who can read that inbox could already have emailed you asking
+for their files by hand.
+
 ## Test before going live
 
 With **test** keys in `config.php`, buy something using card

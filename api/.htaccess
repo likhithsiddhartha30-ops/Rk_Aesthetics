@@ -1,15 +1,33 @@
-# Config holds the Razorpay secret: never serve it, whatever happens.
-<FilesMatch "^(config|config\.sample|lib)\.php$">
+# Config holds the Razorpay and Magic secrets, and lib/magic are
+# libraries, not endpoints: never serve any of them, whatever happens.
+<FilesMatch "^(config|config\.sample|lib|magic)\.php$">
     Require all denied
 </FilesMatch>
 
 # Apache 2.2 fallback for older shared hosting.
 <IfModule !mod_authz_core.c>
-    <FilesMatch "^(config|config\.sample|lib)\.php$">
+    <FilesMatch "^(config|config\.sample|lib|magic)\.php$">
         Order allow,deny
         Deny from all
     </FilesMatch>
 </IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Composer's folder is not for visitors.
+    RewriteRule ^vendor/ - [F,L]
+
+    # Under CGI and FastCGI, Apache drops the Authorization header
+    # before PHP sees it, and Magic sign-in dies with it. Put it back.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# Nor is composer.json, or the lock file beside it.
+<FilesMatch "^composer\.(json|lock)$">
+    Require all denied
+</FilesMatch>
 
 # No directory listing of this folder.
 Options -Indexes

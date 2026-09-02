@@ -105,11 +105,17 @@ function rememberOrder(order) {
   localStorage.setItem(ORDERS_KEY, JSON.stringify(orders.slice(0, 20)));
 }
 
-/* ---------- talking to the Edge Functions ---------- */
-async function callFunction(name, payload) {
+/* ---------- talking to the API ---------- */
+async function callFunction(name, payload, token) {
+  const headers = { "Content-Type": "application/json" };
+
+  // A signed-in request carries proof of who is asking. Endpoints
+  // that do not need it ignore it.
+  if (token) headers.Authorization = "Bearer " + token;
+
   const res = await fetch(functionUrl(name), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload)
   });
 
@@ -221,6 +227,68 @@ async function payAndCollect(customer, onStage) {
   });
 }
 
+/* ---------- signing in with Magic ----------
+   Magic emails the buyer a link and hands us back a token. We never
+   see a password, and never store one. The token proves an email was
+   reached; the server decides what that email owns.
+   ------------------------------------------- */
+let magicScriptPromise = null;
+function loadMagicSdk() {
+  if (window.Magic) return Promise.resolve(window.Magic);
+  if (magicScriptPromise) return magicScriptPromise;
+
+  magicScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = CONFIG.MAGIC_SDK_JS;
+    script.onload = () => resolve(window.Magic);
+    script.onerror = () => {
+      // Let a later attempt try again rather than failing forever.
+      magicScriptPromise = null;
+      reject(new Error("Could not load the sign-in library."));
+    };
+    document.head.appendChild(script);
+  });
+  return magicScriptPromise;
+}
+
+let magicClient = null;
+async function getMagic() {
+  if (magicClient) return magicClient;
+  const Magic = await loadMagicSdk();
+  magicClient = new Magic(CONFIG.MAGIC_PUBLISHABLE_KEY);
+  return magicClient;
+}
+
+/* The token for the current session, or null when nobody is signed
+   in. Magic refuses to issue one for an expired session, which is
+   the same answer as being signed out, so both land here as null. */
+async function magicToken() {
+  if (!accountsEnabled()) return null;
+  try {
+    const magic = await getMagic();
+    if (!(await magic.user.isLoggedIn())) return null;
+    return await magic.user.getIdToken();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function magicSignIn(email) {
+  const magic = await getMagic();
+  // Resolves once the buyer has clicked the link in their inbox.
+  await magic.auth.loginWithMagicLink({ email, showUI: true });
+}
+
+async function magicSignOut() {
+  try {
+    const magic = await getMagic();
+    await magic.user.logout();
+  } catch (e) {
+    /* Already signed out, or Magic is unreachable. Either way the
+       page below should behave as though nobody is signed in. */
+  }
+}
+
 /* ---------- downloads page, paid mode ----------
    The files live in a private bucket, so the links are fetched from
    the server each visit and expire fifteen minutes later. Nothing
@@ -236,22 +304,188 @@ function renderPaidDownloads() {
   const emptyEl = document.getElementById("downloads-empty");
   const listWrap = document.getElementById("downloads-list");
 
-  const known = getOrders();
-  const orderId = new URLSearchParams(location.search).get("order") || known[0]?.id;
+  const authWrap = document.getElementById("downloads-auth");
 
-  // Nothing to ask: with no server configured there are no orders to
-  // look up, and a failed request would only confuse people.
-  if (!paymentsEnabled() || !orderId) {
-    listWrap.style.display = "none";
-    emptyEl.style.display = "block";
-    return;
+  /* Sign-in is optional. Without it the page behaves as it always
+     has: the orders this browser remembers, and nothing else. */
+  if (accountsEnabled() && authWrap) {
+    initAuth();
+  } else {
+    renderLocal();
   }
 
-  emptyEl.style.display = "none";
-  listWrap.style.display = "block";
-  listWrap.innerHTML = `<p class="downloads-loading">Fetching your files…</p>`;
+  /* ---- signed-in mode ---- */
+  async function initAuth() {
+    authWrap.style.display = "block";
+    authWrap.innerHTML = `<p class="downloads-loading">Checking your sign-in…</p>`;
 
-  load(orderId);
+    const token = await magicToken();
+    if (!token) {
+      renderSignInForm();
+      renderLocal();
+      return;
+    }
+
+    authWrap.innerHTML = `<p class="downloads-loading">Loading your purchases…</p>`;
+    emptyEl.style.display = "none";
+    listWrap.style.display = "block";
+    listWrap.innerHTML = `<p class="downloads-loading">Fetching your files…</p>`;
+
+    try {
+      const data = await callFunction("my-orders", {}, token);
+      renderSignedIn(data);
+    } catch (err) {
+      // An expired session looks exactly like this. Offer the way
+      // back in rather than an error nobody can act on.
+      if (err.status === 401) {
+        await magicSignOut();
+        renderSignInForm("Your sign-in has expired. Send yourself a new link.");
+        renderLocal();
+        return;
+      }
+      /* The server has the keys but not the SDK behind them, so
+         sign-in cannot answer yet. Say so, and fall back to what
+         this browser knows rather than showing an empty page. */
+      if (err.status === 503) {
+        authWrap.innerHTML = `
+          <div class="downloads-signin">
+            <h3>Sign-in is not ready yet</h3>
+            <p>Your files are still here — these are the orders this browser remembers. If something is missing, <a href="${escapeAttr(CONFIG.SUPPORT_PAGE)}">contact support</a> and we will send it over.</p>
+          </div>`;
+        renderLocal();
+        return;
+      }
+
+      authWrap.innerHTML = "";
+      listWrap.innerHTML = `
+        <div class="downloads-problem">
+          <h3>We could not load your purchases</h3>
+          <p>${escapeAttr(err.detail || err.message)}</p>
+          <a class="btn btn-outline" href="${escapeAttr(CONFIG.SUPPORT_PAGE)}">Contact support</a>
+        </div>`;
+    }
+  }
+
+  function renderSignInForm(note) {
+    authWrap.style.display = "block";
+    authWrap.innerHTML = `
+      <div class="downloads-signin">
+        <h3>Bought these on another device?</h3>
+        <p>${note ? escapeAttr(note) : "Sign in with the email you ordered with and every purchase appears here. No password: we email you a link."}</p>
+        <form id="signin-form" class="signin-row">
+          <label class="sr-only" for="signin-email">Email address</label>
+          <input type="email" id="signin-email" name="email" autocomplete="email"
+                 placeholder="you@example.com" required>
+          <button type="submit" class="btn btn-primary">Email me a link</button>
+        </form>
+        <p class="signin-status" id="signin-status" role="status"></p>
+      </div>`;
+
+    const form = document.getElementById("signin-form");
+    const status = document.getElementById("signin-status");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = form.elements.email.value.trim();
+      if (!email) return;
+
+      const button = form.querySelector("button");
+      button.disabled = true;
+      status.textContent = "Check your inbox and click the link we just sent.";
+
+      try {
+        await magicSignIn(email);
+        // Back from the inbox and signed in: start over, this time
+        // with a token.
+        initAuth();
+      } catch (err) {
+        button.disabled = false;
+        status.textContent =
+          "That did not work. Try again, or contact support if it keeps failing.";
+      }
+    });
+  }
+
+  function renderSignedIn(data) {
+    const orders = data.orders || [];
+
+    authWrap.innerHTML = `
+      <div class="downloads-signin is-signed-in">
+        <p>Signed in as <b>${escapeAttr(data.email || "")}</b></p>
+        <button type="button" class="btn btn-outline btn-sm" id="signout-btn">Sign out</button>
+      </div>`;
+
+    document.getElementById("signout-btn").addEventListener("click", async () => {
+      await magicSignOut();
+      location.href = "downloads.html";
+    });
+
+    if (!orders.length) {
+      listWrap.style.display = "none";
+      emptyEl.style.display = "block";
+      emptyEl.querySelector("h3").textContent = "Nothing bought with this email";
+      emptyEl.querySelector("p").textContent =
+        "If you ordered with a different address, sign out and try that one.";
+      return;
+    }
+
+    // Remember them here too, so the page still shows something
+    // useful if Magic is ever unreachable.
+    orders.forEach((o) =>
+      rememberOrder({
+        id: o.order_id,
+        number: o.order_number,
+        date: o.paid_at,
+        total: o.total_inr,
+        items: (o.items || []).map((i) => ({
+          name: i.product_name,
+          price: i.unit_price_inr
+        }))
+      })
+    );
+
+    if (banner) banner.style.display = "none";
+
+    listWrap.innerHTML = orders
+      .map(
+        (o) => `
+        <div class="download-group">
+          <div class="download-group-head">
+            <div>
+              <span class="cat">Order ${escapeAttr(o.order_number || "")}</span>
+              <h3>${(o.items || []).map((i) => escapeAttr(i.product_name)).join(", ") || "Your files"}</h3>
+              <p>${formatPrice(o.total_inr)} paid. Links stay valid for about fifteen minutes — reload for fresh ones.</p>
+            </div>
+          </div>
+          <ul class="download-list">${
+            (o.files || []).length
+              ? serverDownloadListHTML(o.files)
+              : `<li class="download-row"><span class="download-name">No files attached to this order. Please contact support.</span></li>`
+          }</ul>
+        </div>`
+      )
+      .join("");
+  }
+
+  /* ---- the original, browser-remembered mode ---- */
+  function renderLocal() {
+    const known = getOrders();
+    const orderId = new URLSearchParams(location.search).get("order") || known[0]?.id;
+
+    // Nothing to ask: with no server configured there are no orders to
+    // look up, and a failed request would only confuse people.
+    if (!paymentsEnabled() || !orderId) {
+      listWrap.style.display = "none";
+      emptyEl.style.display = "block";
+      return;
+    }
+
+    emptyEl.style.display = "none";
+    listWrap.style.display = "block";
+    listWrap.innerHTML = `<p class="downloads-loading">Fetching your files…</p>`;
+
+    load(orderId);
+  }
 
   async function load(id) {
     try {

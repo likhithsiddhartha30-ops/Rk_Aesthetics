@@ -30,7 +30,7 @@ function cors_headers(): void
 {
     $origin = cfg('allowed_origin') ?: '*';
     header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
     header('Access-Control-Allow-Methods: POST, OPTIONS');
     header('Vary: Origin');
 }
