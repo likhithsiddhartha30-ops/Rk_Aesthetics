@@ -3,11 +3,7 @@
 
    This is a paid shop. Files are never served from here: a download
    link is issued by the server, signed and short-lived, and only
-   against an order PhonePe has confirmed as paid.
-
-   PhonePe hosts the payment page, so checkout hands the buyer over
-   and they return to the downloads page, where the server asks
-   PhonePe what actually happened.
+   against an order Razorpay has confirmed as paid.
 
    Until CONFIG.FUNCTIONS_BASE is set in js/config.js the payment step
    has nowhere to go, so checkout says payment is opening shortly and
@@ -109,7 +105,7 @@ function rememberOrder(order) {
   localStorage.setItem(ORDERS_KEY, JSON.stringify(orders.slice(0, 20)));
 }
 
-/* ---------- talking to the API ---------- */
+/* ---------- talking to the Edge Functions ---------- */
 async function callFunction(name, payload) {
   const res = await fetch(functionUrl(name), {
     method: "POST",
@@ -124,10 +120,7 @@ async function callFunction(name, payload) {
     /* a non-JSON error page: fall through to the status check */
   }
 
-  /* A 202 is "accepted, not finished" — still an error as far as the
-     caller is concerned, and res.ok would call it a success. Any reply
-     carrying an `error` is treated the same way whatever its status. */
-  if (!res.ok || res.status === 202 || body.error) {
+  if (!res.ok) {
     const err = new Error(body.error || `Request failed (${res.status})`);
     err.detail = body.detail;
     err.status = res.status;
@@ -136,16 +129,29 @@ async function callFunction(name, payload) {
   return body;
 }
 
-/* ---------- the payment itself ----------
-   PhonePe hosts the payment page, so this hands over rather than
-   opening anything: create-order prices the cart and returns a URL,
-   and the buyer leaves for PhonePe. They come back to the downloads
-   page, which asks the server what actually happened.
+/* Razorpay's checkout script is only needed on the checkout page, so
+   it is fetched when payment actually starts rather than on load. */
+let razorpayScriptPromise = null;
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve(window.Razorpay);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
 
-   Nothing here can unlock a download, and nothing the browser reports
-   on the way back is believed.
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = CONFIG.RAZORPAY_CHECKOUT_JS;
+    script.onload = () => resolve(window.Razorpay);
+    script.onerror = () => reject(new Error("Could not load the payment window"));
+    document.head.appendChild(script);
+  });
+  return razorpayScriptPromise;
+}
+
+/* ---------- the payment itself ----------
+   create-order prices the cart on the server, Razorpay collects the
+   money, verify-payment checks the signature and returns the files.
+   Nothing here can unlock a download on its own.
    ---------------------------------------- */
-async function startPhonePeCheckout(customer, onStage) {
+async function payAndCollect(customer, onStage) {
   const stage = onStage || (() => {});
 
   stage("Setting up your order…");
@@ -156,40 +162,70 @@ async function startPhonePeCheckout(customer, onStage) {
     phone: customer.phone,
     city: customer.city,
     state: customer.state,
-    gstin: customer.gstin,
     notes: customer.notes
   });
 
-  if (!order.redirect_url) {
-    throw new Error("PhonePe did not return a payment page.");
-  }
+  stage("Opening the payment window…");
+  const Razorpay = await loadRazorpay();
 
-  /* Remember the order before leaving, so the downloads page can find
-     it again even if PhonePe's return URL loses the query string. The
-     cart is deliberately left alone: it is cleared only once the
-     payment is confirmed. */
-  rememberOrder({
-    id: order.order_id,
-    number: order.order_number,
-    date: new Date().toISOString(),
-    total: order.amount / 100,
-    customer,
-    items: cartLines().map((l) => ({
-      id: l.id,
-      name: l.product.name,
-      price: l.product.price
-    }))
+  return new Promise((resolve, reject) => {
+    const rzp = new Razorpay({
+      key: order.razorpay_key_id,
+      order_id: order.razorpay_order_id,
+      amount: order.amount,
+      currency: order.currency,
+      name: CONFIG.BRAND_NAME,
+      description: `${order.items_label || "Your order"} · ${order.order_number}`,
+      prefill: order.prefill,
+      notes: { order_id: order.order_id },
+      theme: { color: CONFIG.BRAND_COLOR },
+
+      handler: async (response) => {
+        try {
+          stage("Confirming your payment…");
+          const verified = await callFunction("verify-payment", {
+            order_id: order.order_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          });
+          resolve({ order, verified });
+        } catch (err) {
+          // The money may well have left their account, so never say
+          // the payment failed — point them at support with the id.
+          err.paymentTaken = true;
+          err.paymentId = response.razorpay_payment_id;
+          err.orderId = order.order_id;
+          reject(err);
+        }
+      },
+
+      modal: {
+        ondismiss: () => {
+          const err = new Error("Payment window closed before paying.");
+          err.dismissed = true;
+          reject(err);
+        }
+      }
+    });
+
+    rzp.on("payment.failed", (e) => {
+      const err = new Error(
+        e?.error?.description || "The payment did not go through."
+      );
+      err.failed = true;
+      reject(err);
+    });
+
+    rzp.open();
   });
-
-  stage("Taking you to PhonePe…");
-  location.href = order.redirect_url;
 }
 
 /* ---------- downloads page, paid mode ----------
-   The files live outside the web root, so the links are fetched from
+   The files live in a private bucket, so the links are fetched from
    the server each visit and expire fifteen minutes later. Nothing
-   here decides who may download what: order-status refuses any order
-   PhonePe has not confirmed as paid.
+   here decides who may download what: order-files refuses any order
+   that has not actually been paid for.
    ----------------------------------------------- */
 function renderPaidDownloads() {
   // Only the downloads page has this markup; every other page calls
@@ -217,18 +253,9 @@ function renderPaidDownloads() {
 
   load(orderId);
 
-  /* A payment can still be confirming when the buyer lands back here,
-     so a pending answer is retried a few times before giving up and
-     handing them a button. */
-  let pendingTries = 0;
-  const MAX_PENDING_TRIES = 5;
-
   async function load(id) {
     try {
-      const data = await callFunction("order-status", { order_id: id });
-
-      // Paid for: the cart that produced this order has done its job.
-      saveCart([]);
+      const data = await callFunction("order-files", { order_id: id });
 
       // Keep it on this device so a later visit still works.
       rememberOrder({
@@ -269,54 +296,28 @@ function renderPaidDownloads() {
 
       wireOrderSwitch();
     } catch (err) {
-      /* 202 means PhonePe has not finished confirming. That usually
-         resolves within seconds, so wait and ask again rather than
-         showing an error to somebody who has just paid. */
-      const stillConfirming = err.status === 202 || err.status === 503;
-      if (stillConfirming && pendingTries < MAX_PENDING_TRIES) {
-        pendingTries += 1;
-        listWrap.innerHTML = `<p class="downloads-loading">Confirming your payment with PhonePe… (${pendingTries}/${MAX_PENDING_TRIES})</p>`;
-        setTimeout(() => load(id), 3000);
-        return;
-      }
-
-      const failed = err.status === 402;
-      const refunded = err.status === 410;
-
-      let heading = "We could not load your files";
-      if (stillConfirming) heading = "Your payment is still being confirmed";
-      else if (failed) heading = "That payment did not go through";
-      else if (refunded) heading = "This order was refunded";
-      else if (err.status === 404) heading = "Your files are not ready yet";
-
+      // A payment confirmed a second ago may not have landed yet.
+      const notReady = err.status === 404;
       listWrap.innerHTML = `
         <div class="downloads-problem">
-          <h3>${heading}</h3>
+          <h3>${notReady ? "Your files are not ready yet" : "We could not load your files"}</h3>
           <p>${escapeAttr(err.detail || err.message)}</p>
-          ${
-            failed
-              ? `<a class="btn btn-primary" href="cart.html">Back to your cart</a>`
-              : `<button type="button" class="btn btn-primary" id="downloads-retry">Try again</button>`
-          }
+          <button type="button" class="btn btn-primary" id="downloads-retry">Try again</button>
           <a class="btn btn-outline" href="${escapeAttr(CONFIG.SUPPORT_PAGE)}">Contact support</a>
           <p class="downloads-ref">Order reference: <b>${escapeAttr(id)}</b></p>
         </div>
         ${otherOrdersHTML(id)}`;
 
-      const retry = document.getElementById("downloads-retry");
-      if (retry) {
-        retry.addEventListener("click", () => {
-          pendingTries = 0;
-          load(id);
-        });
-      }
+      document
+        .getElementById("downloads-retry")
+        .addEventListener("click", () => load(id));
       wireOrderSwitch();
     }
   }
 
   /* The signed URL already carries a filename and an attachment
      header, so a plain link downloads correctly. No blob fetch here:
-     the file comes from the server, already named. */
+     the file is on another origin. */
   function serverDownloadListHTML(files) {
     return files
       .map(
@@ -675,13 +676,13 @@ function initProductPage() {
       </div>
       <div class="product-actions">
         ${claimButtonHTML(p, "btn-lg")}
-        <span class="pay-note">Pay securely with PhonePe. UPI, card or netbanking.</span>
+        <span class="pay-note">Secure payment by Razorpay. UPI, card or netbanking.</span>
       </div>
       <div class="delivery-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
         <div>
           <b>Downloads open the moment your payment clears.</b>
-          <span>You are taken to PhonePe to pay by UPI, card or netbanking, then straight back to your downloads. This site never sees your card details.</span>
+          <span>Pay by UPI, card or netbanking in Razorpay's secure window. This site never sees your card details.</span>
         </div>
       </div>
       <ul class="included-list">
@@ -881,10 +882,10 @@ function initCartPage() {
 }
 
 /* ---------- checkout page ----------
-   Collects the buyer's details, then hands the whole cart to PhonePe
-   as one payment. The details are kept on this device only so the
-   form fills itself in next time; the order itself lives on the
-   server from the moment create-order runs.
+   There is no payment API here: each product is paid for on its own
+   hosted Razorpay page. One item is a straight redirect. Several
+   items means several payments, because a Payment Link carries one
+   fixed amount, so the page says so plainly and nudges the bundle.
    ----------------------------------- */
 const CUSTOMER_KEY = "rkaesthetics_customer";
 
@@ -1007,13 +1008,12 @@ function initCheckoutPage() {
       phone: form.elements.phone.value.replace(/[\s-]/g, ""),
       city: form.elements.city.value.trim(),
       state: form.elements.state.value.trim(),
-      gstin: form.elements.gstin.value.trim().toUpperCase(),
       notes: form.elements.notes.value.trim()
     };
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
 
     if (!paymentsEnabled()) {
-      // PhonePe is not connected yet. Say so plainly rather than
+      // Razorpay is not connected yet. Say so plainly rather than
       // pretending to take an order, and never hand a file over.
       showPaymentPending(customer);
       return;
@@ -1049,18 +1049,69 @@ function initCheckoutPage() {
     button.disabled = true;
 
     try {
-      // On success this navigates to PhonePe and never comes back, so
-      // the button is deliberately left in its "taking you there" state.
-      await startPhonePeCheckout(customer, (msg) => {
+      const { order, verified } = await payAndCollect(customer, (msg) => {
         button.textContent = msg;
       });
+
+      // Only the id is kept: the files come from the server each time.
+      rememberOrder({
+        id: order.order_id,
+        number: order.order_number,
+        date: new Date().toISOString(),
+        total: order.amount / 100,
+        customer,
+        items: cartLines().map((l) => ({
+          id: l.id,
+          name: l.product.name,
+          price: l.product.price
+        }))
+      });
+      saveCart([]);
+
+      location.href =
+        "downloads.html?order=" +
+        encodeURIComponent(verified.order_id || order.order_id);
     } catch (err) {
       button.disabled = false;
       button.textContent = label;
 
-      // Nothing has been charged: the buyer never reached PhonePe.
+      if (err.dismissed) {
+        showToast("Payment cancelled. Your cart is still here.");
+        return;
+      }
+      if (err.paymentTaken) {
+        // Money may have moved but we could not confirm it. Never
+        // imply the payment failed.
+        showPaymentTrouble(err);
+        return;
+      }
       showToast(err.message || "Could not start the payment. Please try again.");
     }
+  }
+
+  /* Paid, but we could not confirm it. Give them the reference and a
+     way to reach a human rather than a dead end. */
+  function showPaymentTrouble(err) {
+    const box = document.getElementById("payment-trouble");
+    if (!box) {
+      showToast("Payment taken but not confirmed. Please contact support.");
+      return;
+    }
+    box.innerHTML = `
+      <h3>Your payment went through, but we could not confirm it</h3>
+      <p>Nothing is lost. Send us the reference below and we will email your files straight away, usually within the hour.</p>
+      <div class="trouble-refs">
+        <div><span>Payment reference</span><b>${escapeAttr(err.paymentId || "unknown")}</b></div>
+        <div><span>Order reference</span><b>${escapeAttr(err.orderId || "unknown")}</b></div>
+      </div>
+      <a class="btn btn-primary" href="${escapeAttr(CONFIG.SUPPORT_PAGE)}">Contact support</a>
+      <button type="button" class="btn btn-outline" id="retry-files">Try loading my files again</button>`;
+    box.style.display = "block";
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    document.getElementById("retry-files").addEventListener("click", () => {
+      location.href = "downloads.html?order=" + encodeURIComponent(err.orderId || "");
+    });
   }
 }
 

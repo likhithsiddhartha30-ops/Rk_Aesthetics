@@ -153,9 +153,8 @@ function migrate(PDO $pdo): void
             subtotal_inr INTEGER NOT NULL,
             total_inr INTEGER NOT NULL,
             currency TEXT NOT NULL DEFAULT \'INR\',
-            provider_order_id TEXT NULL,
-            provider_payment_id TEXT NULL,
-            provider_state TEXT NULL,
+            razorpay_order_id TEXT NULL,
+            razorpay_payment_id TEXT NULL,
             paid_at TEXT NULL,
             created_at TEXT NOT NULL
         )',
@@ -174,12 +173,7 @@ function migrate(PDO $pdo): void
             user_agent TEXT NULL,
             created_at TEXT NOT NULL
         )',
-        'CREATE TABLE IF NOT EXISTS app_cache (
-            cache_key TEXT PRIMARY KEY,
-            value TEXT NOT NULL,
-            expires_at INTEGER NOT NULL
-        )',
-        'CREATE INDEX IF NOT EXISTS idx_orders_provider ON orders (provider_order_id)',
+        'CREATE INDEX IF NOT EXISTS idx_orders_rzp ON orders (razorpay_order_id)',
         'CREATE INDEX IF NOT EXISTS idx_orders_email ON orders (email)',
         'CREATE INDEX IF NOT EXISTS idx_items_order ON order_items (order_id)',
         'CREATE INDEX IF NOT EXISTS idx_files_product ON product_files (product_id)',
@@ -330,192 +324,11 @@ function find_order(string $orderId): ?array
     return $order ?: null;
 }
 
-function mark_paid(string $orderId, string $paymentId, string $state = 'COMPLETED'): void
+function mark_paid(string $orderId, string $paymentId): void
 {
     $stmt = db()->prepare(
-        "UPDATE orders SET status = 'paid', paid_at = ?, provider_payment_id = ?, provider_state = ?
+        "UPDATE orders SET status = 'paid', paid_at = ?, razorpay_payment_id = ?
          WHERE id = ? AND status <> 'paid'"
     );
-    $stmt->execute([now_iso(), $paymentId, $state, $orderId]);
-}
-
-function mark_failed(string $orderId, string $state): void
-{
-    $stmt = db()->prepare(
-        "UPDATE orders SET status = 'failed', provider_state = ?
-         WHERE id = ? AND status <> 'paid'"
-    );
-    $stmt->execute([$state, $orderId]);
-}
-
-/* ---------------- PhonePe ----------------
- * Standard Checkout v2: fetch an OAuth token, ask for a payment page,
- * then confirm by asking PhonePe what happened. The buyer leaves the
- * site for PhonePe and comes back, so nothing the browser reports is
- * ever trusted: the status call is the source of truth.
- *
- * Hosts per PhonePe's integration docs. If they change, this is the
- * only place to edit.
- */
-function phonepe_hosts(): array
-{
-    $sandbox = cfg('phonepe_env') !== 'production';
-    return $sandbox
-        ? [
-            'auth' => 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token',
-            'api'  => 'https://api-preprod.phonepe.com/apis/pg-sandbox',
-        ]
-        : [
-            'auth' => 'https://api.phonepe.com/apis/identity-manager/v1/oauth/token',
-            'api'  => 'https://api.phonepe.com/apis/pg',
-        ];
-}
-
-function cache_get(string $key): ?string
-{
-    $stmt = db()->prepare('SELECT value FROM app_cache WHERE cache_key = ? AND expires_at > ?');
-    $stmt->execute([$key, time()]);
-    $row = $stmt->fetch();
-    return $row ? (string) $row['value'] : null;
-}
-
-function cache_put(string $key, string $value, int $ttlSeconds): void
-{
-    $pdo = db();
-    $stmt = $pdo->prepare('DELETE FROM app_cache WHERE cache_key = ?');
-    $stmt->execute([$key]);
-    $stmt = $pdo->prepare('INSERT INTO app_cache (cache_key, value, expires_at) VALUES (?,?,?)');
-    $stmt->execute([$key, $value, time() + $ttlSeconds]);
-}
-
-/* Access tokens last about an hour, so they are cached rather than
-   fetched on every checkout. */
-function phonepe_token(): string
-{
-    $cached = cache_get('phonepe_token');
-    if ($cached !== null) {
-        return $cached;
-    }
-
-    $hosts = phonepe_hosts();
-    $body = http_build_query([
-        'client_id'      => cfg('phonepe_client_id'),
-        'client_version' => (string) cfg('phonepe_client_version'),
-        'client_secret'  => cfg('phonepe_client_secret'),
-        'grant_type'     => 'client_credentials',
-    ]);
-
-    [$status, $response, $error] = http_post(
-        $hosts['auth'],
-        $body,
-        ['Content-Type: application/x-www-form-urlencoded']
-    );
-
-    if ($status < 200 || $status >= 300) {
-        fail('Could not reach PhonePe', 502, 'token http ' . $status . ': ' . ($error ?: $response));
-    }
-
-    $data = json_decode((string) $response, true);
-    $token = $data['access_token'] ?? null;
-    if (!$token) {
-        fail('Could not reach PhonePe', 502, 'token reply: ' . $response);
-    }
-
-    // expires_at is a unix timestamp; keep a minute of headroom.
-    $ttl = isset($data['expires_at'])
-        ? max(60, (int) $data['expires_at'] - time() - 60)
-        : 3000;
-    cache_put('phonepe_token', $token, $ttl);
-
-    return $token;
-}
-
-/* One place for every outbound call, so timeouts and error handling
-   are the same everywhere. */
-function http_post(string $url, string $body, array $headers): array
-{
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $body,
-        CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_TIMEOUT        => 25,
-    ]);
-    $response = curl_exec($ch);
-    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    return [$status, $response, $error];
-}
-
-function http_get(string $url, array $headers): array
-{
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_TIMEOUT        => 25,
-    ]);
-    $response = curl_exec($ch);
-    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    curl_close($ch);
-    return [$status, $response, $error];
-}
-
-function phonepe_headers(): array
-{
-    return [
-        'Content-Type: application/json',
-        'Accept: application/json',
-        'Authorization: O-Bearer ' . phonepe_token(),
-    ];
-}
-
-/* Asks PhonePe what actually happened to an order. Returns the raw
-   decoded reply, or null if PhonePe could not be reached. */
-function phonepe_order_status(string $merchantOrderId): ?array
-{
-    $hosts = phonepe_hosts();
-    $url = $hosts['api'] . '/checkout/v2/order/' . rawurlencode($merchantOrderId) . '/status?details=false';
-
-    [$status, $response, $error] = http_get($url, phonepe_headers());
-    if ($status < 200 || $status >= 300) {
-        error_log('[rk-api] status http ' . $status . ': ' . ($error ?: $response));
-        return null;
-    }
-
-    $data = json_decode((string) $response, true);
-    return is_array($data) ? $data : null;
-}
-
-/* Applies a PhonePe status to our order. Returns the state we settled
-   on: paid, failed or pending. */
-function apply_phonepe_state(array $order, array $status): string
-{
-    $state = strtoupper((string) ($status['state'] ?? ''));
-
-    if ($state === 'COMPLETED') {
-        $paymentId = '';
-        if (!empty($status['paymentDetails'][0]['transactionId'])) {
-            $paymentId = (string) $status['paymentDetails'][0]['transactionId'];
-        }
-        // What was actually paid must match what we asked for.
-        $paid = (int) ($status['amount'] ?? 0);
-        if ($paid > 0 && $paid !== (int) $order['total_inr'] * 100) {
-            error_log('[rk-api] amount mismatch on order ' . $order['id'] . ': ' . $paid);
-            mark_failed($order['id'], 'AMOUNT_MISMATCH');
-            return 'failed';
-        }
-        mark_paid($order['id'], $paymentId, $state);
-        return 'paid';
-    }
-
-    if ($state === 'FAILED') {
-        mark_failed($order['id'], $state);
-        return 'failed';
-    }
-
-    return 'pending';
+    $stmt->execute([now_iso(), $paymentId, $orderId]);
 }
