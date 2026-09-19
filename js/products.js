@@ -50,7 +50,7 @@ const PRODUCTS = [
     format: "PDF",
     duration: "12-week system",
     commitment: "No separate cooking",
-    image: "images/19.jpeg",
+    image: "images/corporate-diet-plan.webp",
     headline: "You don't need to give up rice. You need to fix one meal.",
     blurb: "A fat-loss plan built for canteen food, 10pm dinners and five chais a day.",
     description:
