@@ -25,6 +25,64 @@ function escapeAttr(s) {
 
 const CART_KEY = "rkaesthetics_cart";
 
+/* ---------- Meta Pixel events ----------
+   The pixel itself sits in each page's <head>. These wrappers fire
+   the standard e-commerce events so Meta can optimise ads for buyers,
+   and do nothing at all when the pixel is blocked or has not loaded.
+   ---------------------------------------- */
+function track(event, data, opts) {
+  if (typeof fbq !== "function") return;
+  try {
+    fbq("track", event, data || {}, opts || {});
+  } catch (e) {
+    // analytics must never break the shop
+  }
+}
+
+function pixelContents(lines) {
+  return lines.map((l) => ({ id: l.id, quantity: 1, item_price: l.product.price }));
+}
+
+/* Purchase is fired on the downloads page, not at the moment of
+   payment: the redirect straight after would cut the request off. The
+   order is parked for that page to report once, then forgotten. The
+   order id doubles as the eventID so Meta can dedupe a repeat. */
+const PURCHASE_KEY = "rk_pending_purchase";
+
+function queuePurchase(order, lines) {
+  try {
+    sessionStorage.setItem(
+      PURCHASE_KEY,
+      JSON.stringify({
+        id: order.order_id,
+        value: order.amount / 100,
+        contents: pixelContents(lines)
+      })
+    );
+  } catch (e) {}
+}
+
+function flushPurchase() {
+  let pending = null;
+  try {
+    pending = JSON.parse(sessionStorage.getItem(PURCHASE_KEY) || "null");
+    sessionStorage.removeItem(PURCHASE_KEY);
+  } catch (e) {}
+  if (!pending) return;
+  track(
+    "Purchase",
+    {
+      value: pending.value,
+      currency: "INR",
+      content_type: "product",
+      content_ids: pending.contents.map((c) => c.id),
+      contents: pending.contents,
+      num_items: pending.contents.length
+    },
+    { eventID: pending.id }
+  );
+}
+
 /* ---------- cart storage ----------
    These are digital files: owning two copies of the same PDF is
    meaningless, so a product is either in the cart or it isn't. There
@@ -299,6 +357,8 @@ function renderPaidDownloads() {
   // Only the downloads page has this markup; every other page calls
   // this and should do nothing.
   if (!document.getElementById("downloads-page")) return;
+
+  flushPurchase();
 
   const banner = document.getElementById("order-banner");
   const emptyEl = document.getElementById("downloads-empty");
@@ -764,6 +824,14 @@ function closeCartDrawer() {
 /* One product, one copy: tells the visitor which happened. */
 function addToCartAndOpen(id, name) {
   if (addToCart(id)) {
+    const p = getProduct(id);
+    track("AddToCart", {
+      content_type: "product",
+      content_ids: [id],
+      content_name: p.name,
+      value: p.price,
+      currency: "INR"
+    });
     openCartDrawer("Added to cart");
   } else {
     openCartDrawer("Already in your cart");
@@ -890,6 +958,14 @@ function initProductPage() {
   const p = getProduct(params.get("id")) || PRODUCTS[0];
 
   document.title = `${p.name} | RK Aesthetics`;
+  track("ViewContent", {
+    content_type: "product",
+    content_ids: [p.id],
+    content_name: p.name,
+    content_category: categoryLabel(p.category),
+    value: p.price,
+    currency: "INR"
+  });
 
   wrap.innerHTML = `
     <div class="product-cover">
@@ -1145,6 +1221,15 @@ function initCheckoutPage() {
     return;
   }
 
+  track("InitiateCheckout", {
+    content_type: "product",
+    content_ids: lines.map((l) => l.id),
+    contents: pixelContents(lines),
+    num_items: lines.length,
+    value: cartSubtotal(),
+    currency: "INR"
+  });
+
   /* ---- order summary ---- */
   document.getElementById("checkout-lines").innerHTML = lines
     .map(
@@ -1300,6 +1385,7 @@ function initCheckoutPage() {
           price: l.product.price
         }))
       });
+      queuePurchase(order, cartLines());
       saveCart([]);
 
       location.href =
